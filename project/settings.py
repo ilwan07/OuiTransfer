@@ -36,6 +36,20 @@ ALLOWED_HOSTS = [WEB_DOMAIN, 'localhost']
 
 GITHUB_REPO = 'https://github.com/ilwan07/OuiTransfer/'
 
+OWNER = "Ilwân"
+
+# Email configuration
+
+#EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+#EMAIL_HOST = '...'
+#EMAIL_PORT = ...
+#EMAIL_USE_TLS = ...
+#EMAIL_USE_SSL = ...
+#EMAIL_HOST_USER = os.getenv('EMAIL_ADDRESS')
+#EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASSWORD')
+#DEFAULT_FROM_EMAIL = os.getenv('EMAIL_ADDRESS')
+CONTACT_EMAIL = os.getenv('EMAIL_ADDRESS')
+
 
 # Application definition
 
@@ -72,6 +86,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'ouitransfer.context_processors.context_values',
             ],
         },
     },
@@ -141,9 +156,6 @@ LOCALE_PATHS = [
 STATIC_URL = 'static/'
 STATIC_ROOT = Path('/var/www/diarytrove/static')
 
-# URLs
-
-LOGIN_URL = 'login'
 
 # SECURITY FEATURES: uncomment these in production
 
