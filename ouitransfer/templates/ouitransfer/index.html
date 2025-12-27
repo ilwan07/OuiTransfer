@@ -1,0 +1,17 @@
+{%load static%}
+{%load i18n%}
+
+<!DOCTYPE html>
+<html>
+{%include "ouitransfer/sub/head.html"%}
+
+<body>
+<main>
+    <h1>
+        <img src="{% static 'ouitransfer/assets/ouitransfer.svg' %}"> {% blocktrans %}{{OWNER}}'s OuiTransfer{% endblocktrans %}
+    </h1>
+</main>
+
+{%include "ouitransfer/sub/footer.html"%}
+</body>
+</html>
