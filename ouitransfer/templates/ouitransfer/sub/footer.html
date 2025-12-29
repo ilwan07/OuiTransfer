@@ -5,12 +5,13 @@
     <p id="startrow">{%trans "Contact:"%} <a href="{%url 'contact_email'%}" target="_blank">{{CONTACT_EMAIL}}</a></p>
 
     <p><a href="{%trans 'https://www.gnu.org/licenses/gpl-3.0.html'%}" target="_blank" id="license">{%trans "GPL-3.0 license"%}</a></p>
-    <a id="middlerow" href="{{GITHUB_REPO}}" target="_blank"><img src="{%static 'ouitransfer/assets/github.svg'%}" alt="{%trans 'github icon'%}"></a>
+    <a href="{{GITHUB_REPO}}" title="{%trans 'Github repo'%}" target="_blank"><img class="inv" src="{%static 'ouitransfer/assets/github.svg'%}" alt="{%trans 'github icon'%}"></a>
+    <div id="middlerow"></div>
 
     {% if user.is_staff %}
-        <a href="{% url 'admin:index' %}"><img src="{%static 'ouitransfer/assets/admin.svg'%}" alt="{%trans 'django administration'%}"></a>
-        <a href="{% url 'logout' %}"><img src="{%static 'ouitransfer/assets/logout.svg'%}" alt="{%trans 'admin log out'%}"></a>
+        <a href="{% url 'admin:index' %}" title="{%trans 'Advanced administration'%}"><img class="inv" src="{%static 'ouitransfer/assets/admin.svg'%}" alt="{%trans 'django administration'%}"></a>
+        <a href="{% url 'logout' %}" title="{%trans 'Log out'%}"><img class="inv" src="{%static 'ouitransfer/assets/logout.svg'%}" alt="{%trans 'admin log out'%}"></a>
     {% else %}
-        <a href="{% url 'admin:login' %}?next=/"><img src="{%static 'ouitransfer/assets/login.svg'%}" alt="{%trans 'admin log in'%}"></a>
+        <a href="{% url 'admin:login' %}?next=/" title="{%trans 'Admin access'%}"><img class="inv" src="{%static 'ouitransfer/assets/login.svg'%}" alt="{%trans 'admin log in'%}"></a>
     {% endif %}
 </footer>

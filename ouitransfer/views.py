@@ -13,12 +13,11 @@ def index(request:HttpRequest):
 
 
 def admin_logout(request:HttpRequest):
+    """Logs the active user out if needed"""
     logout(request)
     return redirect("index")
 
 
 def contact_email(request:HttpRequest):
-    """
-    Redirects to a link to send an email
-    """
+    """Redirects to a link to send an email"""
     return HttpResponse(f"<script>window.location.href = 'mailto:{settings.CONTACT_EMAIL}';</script>")
