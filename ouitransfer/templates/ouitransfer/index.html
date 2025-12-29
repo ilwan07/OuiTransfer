@@ -8,8 +8,21 @@
 <body>
 <main>
     <h1>
-        <img src="{% static 'ouitransfer/assets/ouitransfer.svg' %}"> {% blocktrans %}{{OWNER}}'s OuiTransfer{% endblocktrans %}
+        <img class="inv" src="{% static 'ouitransfer/assets/ouitransfer.svg' %}"> {% blocktrans %}{{OWNER}}'s OuiTransfer{% endblocktrans %}
     </h1>
+
+    <h3>{% blocktrans %}Transfer files easily and efficiently between you and {{OWNER}} using this simple webapp!{% endblocktrans %}</h3>
+    <h3>{% blocktrans %}Already have a transfer ID? Enter it below to start sending or receiving files:{% endblocktrans %}</h3>
+
+    <h3><i>TODO</i></h3> <!--TODO-->
+
+    <div class="spacing"></div>
+
+    <h2>
+        {%trans "Browse publicly shared files"%}
+    </h2>
+
+    <h3><i>TODO</i></h3> <!--TODO-->
 </main>
 
 {%include "ouitransfer/sub/footer.html"%}
