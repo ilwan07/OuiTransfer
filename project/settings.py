@@ -38,6 +38,8 @@ GITHUB_REPO = 'https://github.com/ilwan07/OuiTransfer/'
 
 OWNER = "Ilwân"  # Your name here
 
+BASE_STORAGE_PATH = "/home/ilwan/.transfers"  # Default path to store transfered files
+
 # Email configuration
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -47,9 +49,8 @@ EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = os.getenv('EMAIL_ADDRESS')
-CONTACT_EMAIL = os.getenv('EMAIL_ADDRESS')
-
+DEFAULT_FROM_EMAIL = os.getenv('AGENT_EMAIL')
+CONTACT_EMAIL = os.getenv('CONTACT_EMAIL')
 
 # Application definition
 
