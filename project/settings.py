@@ -40,6 +40,8 @@ OWNER = "Ilwân"  # Your name here
 
 BASE_STORAGE_PATH = "/home/ilwan/.transfers"  # Default path to store transfered files
 
+STORAGE_SAFE_SPACE = 2**30  # Consider storage full if less than this space is free (in bytes)
+
 # Email configuration
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -55,13 +57,13 @@ CONTACT_EMAIL = os.getenv('CONTACT_EMAIL')
 # Application definition
 
 INSTALLED_APPS = [
-    'ouitransfer.apps.OuitransferConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'ouitransfer.apps.OuitransferConfig',
 ]
 
 MIDDLEWARE = [

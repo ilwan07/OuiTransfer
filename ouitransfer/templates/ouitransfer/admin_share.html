@@ -1,0 +1,28 @@
+{%load static%}
+{%load i18n%}
+
+<!DOCTYPE html>
+<html>
+{%include "ouitransfer/sub/head.html"%}
+
+<body>
+<header>
+    <h2>{%trans "Create a file share"%}</h2>
+</header>
+
+<main>
+    <form id="share-form" method="post" action="{%url 'share'%}">
+    {%csrf_token%}
+    <div id="formcontent">
+        <div class="checkboxdiv">
+            <input type="checkbox" name="send-email" id="send-email" checked>
+            <label for="send-email">{%trans "Send email to:"%}</label>
+            <input type="text" name="email-address" id="email-address" minlength="4" maxlength="320" placeholder="...">
+        </div>
+    </div>
+    </form>
+</main>
+
+{%include "ouitransfer/sub/footer.html"%}
+</body>
+</html>

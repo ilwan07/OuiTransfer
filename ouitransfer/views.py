@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse, Http404
+from django.http import HttpRequest, HttpResponse, Http404, HttpResponseNotAllowed
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import logout
 from django.shortcuts import render, redirect
@@ -16,7 +16,7 @@ def favicon(request:HttpRequest):
             with open(favicon_path, "rb") as f:
                 return HttpResponse(f.read(), content_type="image/svg+xml")
         else:
-            raise Http404("Favicon not found")
+            raise Http404()
 
     favicon_url = static("ouitransfer/assets/favicon.svg")
     return redirect(favicon_url)
@@ -42,8 +42,15 @@ def contact_email(request:HttpRequest):
 
 
 def share(request:HttpRequest):
-    """Allows the admin to share new files"""
+    """Allows the admin to create a new share"""
     if not request.user.is_staff:
-        raise PermissionDenied("You're not an admin")
+        raise PermissionDenied()
     
-    return HttpResponse("TODO")
+    if request.method == "GET":
+        return render(request, "ouitransfer/admin_share.html")
+    
+    elif request.method == "POST":
+        return HttpResponse("TODO")  #TODO
+    
+    else:
+        return HttpResponseNotAllowed()
