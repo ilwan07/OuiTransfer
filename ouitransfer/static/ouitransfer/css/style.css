@@ -118,14 +118,18 @@ h3 {
     max-height: 20rem;
 }
 
+#formcontent #email-address {
+    max-width: 26rem;
+}
+
 #formcontent input[type="checkbox"] {
     appearance: none;
     -webkit-appearance: none;
     position: relative;
-    width: 20px;
-    height: 20px;
-    min-width:20px !important;
-    min-height:20px !important;
+    min-width:20px;
+    min-height:20px;
+    max-width: 20px;
+    max-height: 20px;
     border: 1px solid var(--sub-color);
     border-radius: 2px;
     cursor: pointer;
@@ -150,13 +154,55 @@ h3 {
     transform: rotate(45deg);
 }
 
-#formcontent textarea, #formcontent select, #formcontent input:not([type="checkbox"]):not([type="number"]) {
+#formcontent textarea, #formcontent select, #formcontent button, #formcontent input:not([type="checkbox"]) {
     color: var(--input-text-color);
     background-color: var(--input-bg-color);
     padding-left: 0.5rem;
 }
 
-#formcontent textarea, #formcontent input:not([type="checkbox"]):not([type="number"]) {
+#formcontent select {
+    padding-right: 0;
+    text-align: center;
+}
+
+.number-input input {
+    max-width: 4rem !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    text-align: center;
+}
+
+.number-input select {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+}
+
+.number-input button[decr] {
+    width: 2.6rem;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}
+
+.number-input button[incr] {
+    width: 2.8rem;
+    border-radius: 0 !important;
+}
+
+.number-input input[type="number"] {
+    -webkit-appearance: textfield;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.number-input input[type=number]::-webkit-inner-spin-button, .number-input input[type=number]::-webkit-outer-spin-button { 
+    -webkit-appearance: none;
+}
+
+.number-input {
+    display: flex;
+}
+
+#formcontent textarea, #formcontent input:not([type="checkbox"]) {
     width: 100%;
 }
 

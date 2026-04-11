@@ -29,8 +29,21 @@
             <label>{%trans "Message (optional):"%}</label>
             <textarea name="content" id="content" rows="2" placeholder="..."></textarea>
         </div>
-        <div>
-            
+        <br>
+        <div class="inline-input">
+            <input type="checkbox" name="expire" id="expire">
+            <label for="expire">{%trans "Delete in:"%}</label>
+            <span class="number-input">
+                <button type="button" target="delay" decr>–</button>
+                <input type="number" name="delay" id="delay" min="1" step="1" value="7">
+                <button type="button" target="delay" incr>+</button>
+                <select name="delay-unit" id="delay-unit">
+                    <option value="minutes">{%trans "minute(s)"%}</option>
+                    <option value="hours">{%trans "hour(s)"%}</option>
+                    <option value="days" selected="selected">{%trans "day(s)"%}</option>
+                    <option value="months">{%trans "months(s)"%}</option>
+                </select>
+            </span>
         </div>
     </div>
     </form>
