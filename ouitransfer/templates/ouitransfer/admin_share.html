@@ -14,10 +14,10 @@
     <form id="share-form" method="post" action="{%url 'share'%}">
     {%csrf_token%}
     <div id="formcontent">
-        <div class="inline-input">
+        <div class="inline-input" id="email-div">
             <input type="checkbox" name="send-email" id="send-email" checked>
             <label for="send-email">{%trans "Send email to:"%}</label>
-            <input type="text" name="email-address" id="email-address" minlength="4" maxlength="320" placeholder="...">
+            <input type="text" name="email-address" id="email-address" minlength="4" maxlength="320">
             <select name="email-lang" id="email-lang">
                 {%for lang in LANGUAGES%}
                     <option value="{{lang.0}}" {%if lang.0 == USER_LANG%}selected="selected"{%endif%}>{{lang.0}}</option>
@@ -27,13 +27,13 @@
         <br>
         <div class="inline-input">
             <label>{%trans "Message (optional):"%}</label>
-            <textarea name="content" id="content" rows="2" placeholder="..."></textarea>
+            <textarea name="content" id="content" rows="2"></textarea>
         </div>
         <br>
-        <div class="inline-input">
+        <div class="inline-input" id="expire-div">
             <input type="checkbox" name="expire" id="expire">
             <label for="expire">{%trans "Delete in:"%}</label>
-            <span class="number-input">
+            <span class="number-input" id="delay-span">
                 <button type="button" target="delay" decr>–</button>
                 <input type="number" name="delay" id="delay" min="1" step="1" value="7">
                 <button type="button" target="delay" incr>+</button>
@@ -50,5 +50,8 @@
 </main>
 
 {%include "ouitransfer/sub/footer.html"%}
+
+<script src="{% static 'ouitransfer/js/admin_share_interact.js' %}"></script>
+
 </body>
 </html>

@@ -21,7 +21,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load the environment variables
 load_dotenv()
 
-# Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -36,9 +35,14 @@ ALLOWED_HOSTS = [WEB_DOMAIN, 'localhost']
 
 GITHUB_REPO = 'https://github.com/ilwan07/OuiTransfer/'
 
-OWNER = "Ilwân"  # Your name here
+OWNER = 'Ilwân'  # Your name here
 
-BASE_STORAGE_PATH = "/home/ilwan/.transfers"  # Default path to store transfered files
+BASE_STORAGE_PATH = '/home/ilwan/.transfers'  # Default path to store transfered files (must be allowed, see below)
+
+# Only allow to save files in directories under these paths
+ALLOWED_STORAGE_TREES = [
+    '/',  # SECURITY WARNING: don't include any sensitive path like root, change this! 
+]
 
 STORAGE_SAFE_SPACE = 2**30  # Consider storage full if less than this space is free (in bytes)
 
@@ -165,7 +169,7 @@ STATIC_URL = 'static/'
 STATIC_ROOT = Path('/var/www/diarytrove/static')
 
 
-# SECURITY FEATURES: uncomment these in production
+# SECURITY WARNING: uncomment these lines in production
 
 #SECURE_SSL_REDIRECT = True
 #SECURE_HSTS_SECONDS = 31536000  # 1 year
