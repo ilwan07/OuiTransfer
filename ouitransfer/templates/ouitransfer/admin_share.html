@@ -14,10 +14,23 @@
     <form id="share-form" method="post" action="{%url 'share'%}">
     {%csrf_token%}
     <div id="formcontent">
-        <div class="checkboxdiv">
+        <div class="inline-input">
             <input type="checkbox" name="send-email" id="send-email" checked>
             <label for="send-email">{%trans "Send email to:"%}</label>
             <input type="text" name="email-address" id="email-address" minlength="4" maxlength="320" placeholder="...">
+            <select name="email-lang" id="email-lang">
+                {%for lang in LANGUAGES%}
+                    <option value="{{lang.0}}" {%if lang.0 == USER_LANG%}selected="selected"{%endif%}>{{lang.0}}</option>
+                {%endfor%}
+            </select>
+        </div>
+        <br>
+        <div class="inline-input">
+            <label>{%trans "Message (optional):"%}</label>
+            <textarea name="content" id="content" rows="2" placeholder="..."></textarea>
+        </div>
+        <div>
+            
         </div>
     </div>
     </form>

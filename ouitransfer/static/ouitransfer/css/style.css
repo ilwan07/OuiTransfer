@@ -1,17 +1,17 @@
 :root {
-    --text-color: black;
+    --text-color: #000000;
     --bg-color: #e2ece8;
     --sub-color: #3bc776;
-    --input-text-color: black;
+    --input-text-color: #000000;
     --input-bg-color: #e8e6e3;
 }
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --text-color: white;
+        --text-color: #ffffff;
         --bg-color: #1d1f1e;
         --sub-color: #145931;
-        --input-text-color: white;
+        --input-text-color: #ffffff;
         --input-bg-color: #282828;
     }
 
@@ -89,7 +89,17 @@ h3 {
     font-size: 1.3rem;
 }
 
-#formcontent button, #formcontent textarea, #formcontent input:not([type="checkbox"]) {
+#formcontent div {
+    display: flex;
+    align-items: center;
+}
+
+#formcontent div input, #formcontent div textarea {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+#formcontent button, #formcontent textarea, #formcontent select, #formcontent input:not([type="checkbox"]) {
     font-size: 1.2rem;
     padding: 0.2rem;
     margin-top: 0.6rem;
@@ -104,8 +114,8 @@ h3 {
 
 #formcontent textarea {
     resize: vertical;
-    min-height: 5rem;
-    max-height: 35rem;
+    min-height: 2rem;
+    max-height: 20rem;
 }
 
 #formcontent input[type="checkbox"] {
@@ -114,6 +124,8 @@ h3 {
     position: relative;
     width: 20px;
     height: 20px;
+    min-width:20px !important;
+    min-height:20px !important;
     border: 1px solid var(--sub-color);
     border-radius: 2px;
     cursor: pointer;
@@ -138,10 +150,30 @@ h3 {
     transform: rotate(45deg);
 }
 
-#formcontent textarea, #formcontent input:not([type="checkbox"]):not([type="number"]) {
-    width: 100%;
+#formcontent textarea, #formcontent select, #formcontent input:not([type="checkbox"]):not([type="number"]) {
     color: var(--input-text-color);
     background-color: var(--input-bg-color);
+    padding-left: 0.5rem;
+}
+
+#formcontent textarea, #formcontent input:not([type="checkbox"]):not([type="number"]) {
+    width: 100%;
+}
+
+.inline-input {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.inline-input label {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.inline-input input[type="text"] {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 footer {
