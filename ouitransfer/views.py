@@ -1,11 +1,14 @@
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse, Http404, HttpResponseNotAllowed
+from django.http import HttpRequest, HttpResponse, Http404, HttpResponseNotAllowed,JsonResponse
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import logout
 from django.shortcuts import render, redirect
 from django.templatetags.static import static
 
+from .utils import is_path_legal
+
 import os
+from pathlib import Path
 
 
 def favicon(request:HttpRequest):
@@ -54,3 +57,21 @@ def share(request:HttpRequest):
     
     else:
         return HttpResponseNotAllowed()
+
+def next_dirs(request:HttpRequest):
+    """Return a json list of usable directories under the given path, for internal use"""
+    if not request.user.is_staff:
+        raise PermissionDenied()
+    path = request.GET.get("path", None)
+    if path is None:
+        raise Http404()
+    path = Path(path)
+    if not path.exists():
+        raise Http404()
+    if not is_path_legal(path):
+        raise PermissionDenied()
+    
+    # get writable directories
+    subdirs = sorted([d.name for d in path.iterdir() if d.is_dir() and os.access(d, os.W_OK)], key=lambda s: s.lower().replace(".", "~"))
+    response = {"dirs": subdirs}
+    return JsonResponse(response)

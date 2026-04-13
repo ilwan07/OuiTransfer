@@ -1,5 +1,6 @@
 {%load static%}
 {%load i18n%}
+{%trans "Share" as subtitle%}
 
 <!DOCTYPE html>
 <html>
@@ -41,9 +42,24 @@
                     <option value="minutes">{%trans "minute(s)"%}</option>
                     <option value="hours">{%trans "hour(s)"%}</option>
                     <option value="days" selected="selected">{%trans "day(s)"%}</option>
-                    <option value="months">{%trans "months(s)"%}</option>
+                    <option value="months">{%trans "month(s)"%}</option>
                 </select>
             </span>
+        </div>
+        <br>
+        <div class="inline-input" id="storage-path">
+            <button type="button" id="reset-path" title="{%trans 'reset path'%}">
+                <img class="inv" src="{%static 'ouitransfer/assets/reset.svg' %}" alt="{%trans 'reset path'%}">
+            </button>
+            <label for="">{%trans "Store in:"%}</label>
+            <div id="path-selector" data-next-dirs-url="{%url '_next_dirs'%}">
+                <select id="root-path" class="path-elem" name="path-0" index="0">
+                    {%for path in ALLOWED_STORAGE_ROOTS%}
+                        <option value="{{path}}">{{path}}</option>
+                    {%endfor%}
+                </select>
+            </div>
+            <i><p class="info" id="path-info"></p></i>
         </div>
     </div>
     </form>
@@ -51,7 +67,8 @@
 
 {%include "ouitransfer/sub/footer.html"%}
 
+<script src="{% url 'javascript-catalog' %}"></script>
 <script src="{% static 'ouitransfer/js/admin_share_interact.js' %}"></script>
-
+<script src="{% static 'ouitransfer/js/path_selector.js' %}"></script>
 </body>
 </html>

@@ -7,5 +7,6 @@ def context_values(request):
             "GITHUB_REPO": settings.GITHUB_REPO,
             "OWNER": settings.OWNER,
             "LANGUAGES": settings.LANGUAGES,
-            "USER_LANG": get_language()
+            "USER_LANG": get_language(),
+            "ALLOWED_STORAGE_ROOTS": settings.ALLOWED_STORAGE_ROOTS,
            }

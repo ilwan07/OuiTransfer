@@ -39,9 +39,11 @@ OWNER = 'Ilwân'  # Your name here
 
 BASE_STORAGE_PATH = '/home/ilwan/.transfers'  # Default path to store transfered files (must be allowed, see below)
 
-# Only allow to save files in directories under these paths
-ALLOWED_STORAGE_TREES = [
-    '/',  # SECURITY WARNING: don't include any sensitive path like root, change this! 
+# Only allow to save files in directories under these paths (include trailing slashes)
+# SECURITY WARNING: don't include any sensitive path like root, edit this! 
+ALLOWED_STORAGE_ROOTS = [
+    '/home/ilwan/',
+    '/mnt/',
 ]
 
 STORAGE_SAFE_SPACE = 2**30  # Consider storage full if less than this space is free (in bytes)
