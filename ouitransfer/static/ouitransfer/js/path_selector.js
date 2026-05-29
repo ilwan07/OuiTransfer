@@ -1,6 +1,8 @@
 const path_selector = document.getElementById("path-selector");  // div containing the selectors only
 const info_tag = document.getElementById("path-info");  // tag to display info about path actions
 const next_dirs_url = path_selector.getAttribute("data-next-dirs-url");
+const reset_path_button = document.getElementById("reset-path");
+const default_dir_breakdown_url = path_selector.getAttribute("data-default-dir-breakdown-url");
 
 var path_selects = [document.getElementById("root-path")];  // array of the selects in the path selector
 
@@ -37,7 +39,7 @@ function set_enabled(elems, enable) {
 // handle selection of a new path from one of the selects
 async function update_dirs() {
     set_enabled(path_selects, false);  // disable selects while processing
-    info_tag.innerHTML = gettext("Loading...");
+    info_tag.textContent = gettext("Loading...");
     fit_select(this);
     const index = parseInt(this.getAttribute("index"));  // index of the triggered select
 
@@ -46,7 +48,7 @@ async function update_dirs() {
     to_remove.forEach(function(elem) {path_selector.removeChild(elem);});
 
     if (this.value === ".") {  // if it's just the current dir, stop there
-        info_tag.innerHTML = "";
+        info_tag.textContent = "";
         set_enabled(path_selects, true);  // re-enable selects after operations
         return;
     }
@@ -57,7 +59,7 @@ async function update_dirs() {
     try {
         const response = await fetch(url);
         if (!response.ok) {
-            info_tag.innerHTML = gettext("Request error: HTTP") + response.status;
+            info_tag.textContent = gettext("Request error: HTTP") + response.status;
         } else {
             const response_json = await response.json();
             if (response_json.dirs.length > 0) {
@@ -76,13 +78,51 @@ async function update_dirs() {
                 fit_select(new_select);
                 new_select.addEventListener("change", update_dirs);
             }
-            info_tag.innerHTML = "";
+            info_tag.textContent = "";
         }
     } catch (error) {
-        info_tag.innerHTML = gettext("Network error: ") + error;
+        info_tag.textContent = gettext("Network error: ") + String(error);
     }
     set_enabled(path_selects, true);  // re-enable selects after operations
 }
 
-path_selects[0].addEventListener("change", update_dirs);
-update_dirs.call(path_selects[0]);
+path_selects[0].addEventListener("change", update_dirs);  // update from selected input
+
+// set the default directory in the path selector
+//TODO: optimize with caching of the select states
+async function set_default_dir() {
+    set_enabled(path_selects, false);  // disable selects while processing
+    info_tag.textContent = gettext("Loading...");
+    const breakdown_url = new URL(default_dir_breakdown_url, window.location.origin);
+    try {
+        const breakdown_response = await fetch(breakdown_url);
+        if (!breakdown_response.ok) {
+            info_tag.textContent = gettext("Request error: HTTP") + response.status;
+        }
+        else {
+            const breakdown_json = await breakdown_response.json();
+            if (breakdown_json.breakdown.length == 0) {
+                info_tag.textContent = gettext("Server error: an empty path was provided");
+            }
+            // update selects one by one
+            const breakdown = breakdown_json.breakdown;
+            var okay = true;
+            for (var i=0; i<breakdown.length; i++) {
+                if (!Array.from(path_selects[i].options).some(option => option.value === breakdown[i])) {
+                    // if the next option is not available, it's an error
+                    info_tag.textContent = gettext("Path error: the default path is not accessible");
+                    okay = false;
+                    break;
+                }
+                path_selects[i].value = breakdown[i];
+                await update_dirs.call(path_selects[i]);
+            }
+            if (okay) {info_tag.textContent = "";}
+        }
+    } catch (error) {
+        info_tag.textContent = gettext("Network error: ") + String(error);
+    }
+}
+
+reset_path_button.addEventListener("click", set_default_dir);  // reset to default path
+set_default_dir();  // init with default dir

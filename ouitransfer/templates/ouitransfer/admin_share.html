@@ -7,7 +7,10 @@
 {%include "ouitransfer/sub/head.html"%}
 
 <body>
-<header>
+<header class="with-nav">
+    <a href="{%url 'index'%}" class="nav" alt="{%trans 'home page'%}">
+        <img class="inv nav" src="{%static 'ouitransfer/assets/home.svg' %}">
+    </a>
     <h2>{%trans "Create a file share"%}</h2>
 </header>
 
@@ -15,10 +18,14 @@
     <form id="share-form" method="post" action="{%url 'share'%}">
     {%csrf_token%}
     <div id="formcontent">
+        <div class="inline-input" id="make-public">
+            <input type="checkbox" name="public" id="public">
+            <label for="public">{%trans "Make public"%}</label>
+        </div>
         <div class="inline-input" id="email-div">
             <input type="checkbox" name="send-email" id="send-email" checked>
             <label for="send-email">{%trans "Send email to:"%}</label>
-            <input type="text" name="email-address" id="email-address" minlength="4" maxlength="320">
+            <input type="email" name="email-address" id="email-address">
             <select name="email-lang" id="email-lang">
                 {%for lang in LANGUAGES%}
                     <option value="{{lang.0}}" {%if lang.0 == USER_LANG%}selected="selected"{%endif%}>{{lang.0}}</option>
@@ -52,7 +59,7 @@
                 <img class="inv" src="{%static 'ouitransfer/assets/reset.svg' %}" alt="{%trans 'reset path'%}">
             </button>
             <label for="">{%trans "Store in:"%}</label>
-            <div id="path-selector" data-next-dirs-url="{%url '_next_dirs'%}">
+            <div id="path-selector" data-next-dirs-url="{%url '_next_dirs'%}" data-default-dir-breakdown-url="{%url '_default_dir_breakdown'%}">
                 <select id="root-path" class="path-elem" name="path-0" index="0">
                     {%for path in ALLOWED_STORAGE_ROOTS%}
                         <option value="{{path}}">{{path}}</option>

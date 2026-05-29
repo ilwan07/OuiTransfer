@@ -5,7 +5,7 @@ from django.contrib.auth import logout
 from django.shortcuts import render, redirect
 from django.templatetags.static import static
 
-from .utils import is_path_legal
+from .utils import is_path_legal, list_subdirs, path_breakdown
 
 import os
 from pathlib import Path
@@ -58,20 +58,32 @@ def share(request:HttpRequest):
     else:
         return HttpResponseNotAllowed()
 
+
 def next_dirs(request:HttpRequest):
     """Return a json list of usable directories under the given path, for internal use"""
     if not request.user.is_staff:
-        raise PermissionDenied()
+        raise Http404()
     path = request.GET.get("path", None)
     if path is None:
         raise Http404()
     path = Path(path)
-    if not path.exists():
+    if not path.exists() or not is_path_legal(path):
         raise Http404()
-    if not is_path_legal(path):
-        raise PermissionDenied()
     
     # get writable directories
-    subdirs = sorted([d.name for d in path.iterdir() if d.is_dir() and os.access(d, os.W_OK)], key=lambda s: s.lower().replace(".", "~"))
-    response = {"dirs": subdirs}
+    response = {"dirs": list_subdirs(path)}
     return JsonResponse(response)
+
+
+def default_dir_breakdown(request:HttpRequest):
+    if not request.user.is_staff:
+        raise Http404()
+    path = Path(settings.BASE_STORAGE_PATH)
+    if not path.exists() or not is_path_legal(path):
+        raise Http404()
+    breakdown = path_breakdown(path)
+    if breakdown is None:
+        raise Http404()
+
+    # return the path elements as json
+    return JsonResponse({"breakdown": breakdown})

@@ -15,7 +15,7 @@ class ShareModel(models.Model):
         verbose_name_plural = _("share models")
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    email = models.EmailField(_("receiver email"), default=None,null=True)
+    email = models.EmailField(_("receiver email"), default=None, null=True)
     message = models.TextField(_("message"), default=None, null=True)
     expire_date = models.DateTimeField(_("expiration date"), default=None, null=True)
 

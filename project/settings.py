@@ -31,19 +31,19 @@ DEBUG = True
 
 WEB_DOMAIN = os.getenv('WEB_DOMAIN') if not DEBUG else 'localhost:8000'  # The domain is the local machine in dev
 
-ALLOWED_HOSTS = [WEB_DOMAIN, 'localhost']
+ALLOWED_HOSTS = [WEB_DOMAIN, 'localhost', '127.0.0.1']
 
 GITHUB_REPO = 'https://github.com/ilwan07/OuiTransfer/'
 
 OWNER = 'Ilwân'  # Your name here
 
-BASE_STORAGE_PATH = '/home/ilwan/.transfers'  # Default path to store transfered files (must be allowed, see below)
+BASE_STORAGE_PATH = '/home/ilwan/tests/transfers/'  # Default path to store transfered files (must be allowed, see below)
 
 # Only allow to save files in directories under these paths (include trailing slashes)
-# SECURITY WARNING: don't include any sensitive path like root, edit this! 
+# SECURITY WARNING: don't include any sensitive path, edit this!
 ALLOWED_STORAGE_ROOTS = [
     '/home/ilwan/',
-    '/mnt/',
+    '/mnt/nas/',
 ]
 
 STORAGE_SAFE_SPACE = 2**30  # Consider storage full if less than this space is free (in bytes)

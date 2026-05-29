@@ -53,10 +53,30 @@ div.spacing {
     padding: 2rem;
 }
 
-header {
-    padding-top: 0.2rem;
-    padding-bottom: 0.4rem;
+header.with-nav {
+    padding-top: 1rem;
+    padding-bottom: 1.4rem;
     background-color: var(--sub-color);
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    position: relative;
+}
+
+header.with-nav .nav {
+    padding-left: 0.6rem;
+    height: 2.2rem;
+    max-height: 2.2rem;
+    flex: 0 0 auto;
+}
+
+header.with-nav *:not(.nav) {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 main {
@@ -141,6 +161,11 @@ button#reset-path {
 
 #formcontent #email-address {
     max-width: 26rem;
+}
+
+#formcontent #make-public {
+    padding-bottom: 1.2rem;
+    padding-top: 0.6rem;
 }
 
 #formcontent input[type="checkbox"] {
