@@ -38,12 +38,15 @@ GITHUB_REPO = 'https://github.com/ilwan07/OuiTransfer/'
 OWNER = 'Ilwân'  # Your name here
 
 BASE_STORAGE_PATH = '/home/ilwan/tests/transfers/'  # Default path to store transfered files (must be allowed, see below)
+ALLOW_DOTFILES = False  # Whether to show and allow dotted directories
 
 # Only allow to save files in directories under these paths (include trailing slashes)
+# Each couple is the path and its alias name (CANNOT contain a '/', can be None)
 # SECURITY WARNING: don't include any sensitive path, edit this!
 ALLOWED_STORAGE_ROOTS = [
-    '/home/ilwan/',
-    '/mnt/nas/',
+    ('/home/ilwan/', 'Home'),
+    ('/mnt/nas/', 'NAS'),
+    ('/var/tmp/', None),
 ]
 
 STORAGE_SAFE_SPACE = 2**30  # Consider storage full if less than this space is free (in bytes)
@@ -168,7 +171,7 @@ LOCALE_PATHS = [
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
-STATIC_ROOT = Path('/var/www/diarytrove/static')
+STATIC_ROOT = Path('/var/www/ouitransfer/static')
 
 
 # SECURITY WARNING: uncomment these lines in production

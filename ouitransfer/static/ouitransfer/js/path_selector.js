@@ -97,7 +97,7 @@ async function set_default_dir() {
     try {
         const breakdown_response = await fetch(breakdown_url);
         if (!breakdown_response.ok) {
-            info_tag.textContent = gettext("Request error: HTTP") + response.status;
+            info_tag.textContent = gettext("Request error: HTTP") + breakdown_response.status;
         }
         else {
             const breakdown_json = await breakdown_response.json();
@@ -120,6 +120,7 @@ async function set_default_dir() {
             if (okay) {info_tag.textContent = "";}
         }
     } catch (error) {
+        //TODO fix error handling
         info_tag.textContent = gettext("Network error: ") + String(error);
     }
 }

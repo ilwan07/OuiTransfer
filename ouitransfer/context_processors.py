@@ -8,5 +8,4 @@ def context_values(request):
             "OWNER": settings.OWNER,
             "LANGUAGES": settings.LANGUAGES,
             "USER_LANG": get_language(),
-            "ALLOWED_STORAGE_ROOTS": settings.ALLOWED_STORAGE_ROOTS,
            }

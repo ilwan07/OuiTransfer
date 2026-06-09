@@ -61,7 +61,7 @@
             <label for="">{%trans "Store in:"%}</label>
             <div id="path-selector" data-next-dirs-url="{%url '_next_dirs'%}" data-default-dir-breakdown-url="{%url '_default_dir_breakdown'%}">
                 <select id="root-path" class="path-elem" name="path-0" index="0">
-                    {%for path in ALLOWED_STORAGE_ROOTS%}
+                    {%for path in ALLOWED_ROOTS%}
                         <option value="{{path}}">{{path}}</option>
                     {%endfor%}
                 </select>

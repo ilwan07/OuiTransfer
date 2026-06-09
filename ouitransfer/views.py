@@ -1,15 +1,16 @@
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse, Http404, HttpResponseNotAllowed,JsonResponse
+from django.http import HttpRequest, HttpResponse, Http404, HttpResponseNotAllowed, JsonResponse
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import logout
 from django.shortcuts import render, redirect
 from django.templatetags.static import static
 
-from .utils import is_path_legal, list_subdirs, path_breakdown
+from .utils import is_path_legal, list_subdirs, path_breakdown, aliased_to_abs_path
 
 import os
 from pathlib import Path
 
+#TODO proper logging
 
 def favicon(request:HttpRequest):
     """Serves the favicon"""
@@ -50,10 +51,11 @@ def share(request:HttpRequest):
         raise PermissionDenied()
     
     if request.method == "GET":
-        return render(request, "ouitransfer/admin_share.html")
+        return render(request, "ouitransfer/admin_share.html",
+                      {"ALLOWED_ROOTS": [f"{cpl[1]}/" if cpl[1] is not None else cpl[0] for cpl in settings.ALLOWED_STORAGE_ROOTS]})
     
     elif request.method == "POST":
-        return HttpResponse("TODO")  #TODO
+        return HttpResponse("TODO")  #TODO post request in share
     
     else:
         return HttpResponseNotAllowed()
@@ -66,12 +68,14 @@ def next_dirs(request:HttpRequest):
     path = request.GET.get("path", None)
     if path is None:
         raise Http404()
-    path = Path(path)
-    if not path.exists() or not is_path_legal(path):
+    realpath = aliased_to_abs_path(path)
+    if realpath is None:
+        raise Http404()
+    if not realpath.exists() or not is_path_legal(realpath):
         raise Http404()
     
     # get writable directories
-    response = {"dirs": list_subdirs(path)}
+    response = {"dirs": list_subdirs(realpath)}
     return JsonResponse(response)
 
 
