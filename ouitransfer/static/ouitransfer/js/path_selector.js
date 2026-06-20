@@ -92,6 +92,7 @@ path_selects[0].addEventListener("change", update_dirs);  // update from selecte
 //TODO: optimize with caching of the select states
 async function set_default_dir() {
     set_enabled(path_selects, false);  // disable selects while processing
+    reset_path_button.disabled = true;
     info_tag.textContent = gettext("Loading...");
     const breakdown_url = new URL(default_dir_breakdown_url, window.location.origin);
     try {
@@ -120,9 +121,10 @@ async function set_default_dir() {
             if (okay) {info_tag.textContent = "";}
         }
     } catch (error) {
-        //TODO fix error handling
         info_tag.textContent = gettext("Network error: ") + String(error);
+        return;
     }
+    reset_path_button.disabled = false;
 }
 
 reset_path_button.addEventListener("click", set_default_dir);  // reset to default path

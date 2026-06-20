@@ -4,10 +4,14 @@ import os
 import shutil
 import hashlib
 from pathlib import Path
+import logging
+
+log = logging.getLogger(__name__)
 
 
 def md5_hash(file_path:Path, block_size:int=2**25):
     """Compute the MD5 hash by block for large files, defaults to 32MiB blocks"""
+    log.debug(f"Computing MD5 for {file_path.as_posix}")
     hasher = hashlib.md5()
     with open(file_path, "rb") as f:
         while True:
@@ -15,21 +19,33 @@ def md5_hash(file_path:Path, block_size:int=2**25):
             if not block:
                 break
             hasher.update(block)
-    return hasher.hexdigest()
+    result = hasher.hexdigest()
+    log.debug(f"Hash result: {result}")
+    return result
 
 
 def enough_space(dir:Path, file_size:int) -> bool:
     """Check if there's enough space in the directory to store file, accounting for safe space"""
+    log.debug("Checking available space...")
     if not dir.exists() or not dir.is_dir():
+        log.warning(f"Can't find dir {dir.as_posix()}")
         return False  # consider there's no space if the directory doesn't exist
-    return shutil.disk_usage(dir).free - file_size >= settings.STORAGE_SAFE_SPACE
+    left = shutil.disk_usage(dir).free - file_size
+    enough = left >= settings.STORAGE_SAFE_SPACE
+    if not enough:
+        log.warning("Disk space full!")
+    else:
+        log.debug(f"Enough space left: {left}")
+    return enough
 
 
 def norm_path(path:Path):
     """Returns the normalized absolute path as a string (no symlink resolving)"""
     if type(path) != Path:
         path = Path(path)
-    return os.path.abspath(path.absolute().as_posix())
+    norm = os.path.abspath(path.absolute().as_posix())
+    log.debug(f"Normalized path {path.as_posix()} to {norm}")
+    return norm
 
 
 def is_path_legal(path:Path):
@@ -41,6 +57,7 @@ def is_path_legal(path:Path):
         if npath.startswith(root) and pnpath.is_dir() and os.access(pnpath, os.W_OK) and not is_transfer_dir(pnpath):
             if settings.ALLOW_DOTFILES or all([not elem.startswith(".") or elem=="." for elem in npath.split("/")]):
                 return True
+    log.warning(f"Blocked illegal path: {path.as_posix()}")
     return False
 
 
@@ -53,9 +70,11 @@ def is_transfer_dir(dir:Path):
 
 def list_subdirs(dir:Path):
     """Returns a list of valid subdirectories to access for saving transfers"""
+    log.debug(f"Listing subdirectories of {dir.as_posix()}...")
     subdirs = sorted([d.name for d in dir.iterdir() if d.is_dir() and os.access(d, os.W_OK) and not is_transfer_dir(d)
                       and (settings.ALLOW_DOTFILES or not d.name.startswith("."))],
                      key=lambda s: s.lower().replace(".", "~"))  # sort dotfiles at the end
+    log.debug(f"Listed directories {subdirs}")
     return subdirs
 
 
@@ -64,6 +83,7 @@ def path_breakdown(path:Path):
     npath = norm_path(path)
     root_cpl_candidates = [cpl for cpl in settings.ALLOWED_STORAGE_ROOTS if npath.startswith(cpl[0])]
     if root_cpl_candidates == []:
+        log.warning(f"Can't break down path: {path.as_posix()}")
         return None
     # take the candidate with deepest tree (arbitrary if using different symlinks)
     root_len = -1
@@ -81,6 +101,7 @@ def path_breakdown(path:Path):
 def aliased_to_abs_path(aliased:str):
     """Takes a potentially aliased path, and returns the real absolute path associated if it exists"""
     if len(aliased) == 0:
+        log.warning("Processing empty path alias")
         return None
     if aliased[0] == "/":
         return Path(aliased)
@@ -89,4 +110,5 @@ def aliased_to_abs_path(aliased:str):
     for cpl in settings.ALLOWED_STORAGE_ROOTS:
         if cpl[1] == prefix:
             return Path(f"{cpl[0]}/{suffix}")
+    log.warning(f"Inexistant path alias: {aliased}")
     return None

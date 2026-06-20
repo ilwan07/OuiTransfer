@@ -106,6 +106,33 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'project.wsgi.application'
 
+# Logging
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "simple": {
+            "format": "{asctime} {levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": LOG_DIR / "django.log",
+            "maxBytes": 5 * 2**20,
+            "backupCount": 2,
+            "formatter": "simple",
+        },
+    },
+    "root": {
+        "handlers": ["file"],
+        "level": "DEBUG",
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
