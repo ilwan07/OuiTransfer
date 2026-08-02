@@ -37,6 +37,7 @@ function set_enabled(elems, enable) {
 }
 
 // handle selection of a new path from one of the selects
+//TODO update available space
 async function update_dirs() {
     set_enabled(path_selects, false);  // disable selects while processing
     info_tag.textContent = gettext("Loading...");
@@ -89,7 +90,7 @@ async function update_dirs() {
 path_selects[0].addEventListener("change", update_dirs);  // update from selected input
 
 // set the default directory in the path selector
-//TODO: optimize with caching of the select states
+//TODO: get breakdown from template
 async function set_default_dir() {
     set_enabled(path_selects, false);  // disable selects while processing
     reset_path_button.disabled = true;

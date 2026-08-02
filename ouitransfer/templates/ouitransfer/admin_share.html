@@ -68,14 +68,37 @@
             </div>
             <i><p class="info" id="path-info"></p></i>
         </div>
+
+        <div class="line"></div>
+
+        <div id="upload-container">
+            <input id="file-input" type="file" style="display:none" multiple>
+            <div id="upload-interface">
+                <button type="button" id="add-files-btn">{%trans "Add files"%}</button>
+                <span id="selected-count">{%trans "No files selected"%}</span>
+                <br><small>{%trans "Available space:"%} {{pretty_upload_space}}</small> | <small>{%trans "Selection size:"%} <span id="selection-size">0B</span></small>
+                <span id="max-bytes" style="display:none">{{bytes_upload_space}}</span>
+            </div id="upload-content">
+            <ul id="file-list"></ul>
+            <div id="progress-wrap" style="display:none">
+                <progress id="upload-progress" max=100 value=0></progress>
+                <p id="progress-text">0%</p>
+            </div>
+        </div>
+
+        <div class="line"></div>
     </div>
+    <input type="submit" id="submit-btn" value="{%trans 'Create file share'%}">
     </form>
+    <br id="errorbr" style="display:none"><p id="error" style="display:none"><b id="errorbold"></b></p>
 </main>
 
 {%include "ouitransfer/sub/footer.html"%}
 
 <script src="{% url 'javascript-catalog' %}"></script>
 <script src="{% static 'ouitransfer/js/admin_share_interact.js' %}"></script>
+<script type="text/javascript">const file_asset_path = "{% static 'ouitransfer/assets/file.svg' %}";</script>
+<script src="{% static 'ouitransfer/js/admin_share_upload.js' %}"></script>
 <script src="{% static 'ouitransfer/js/path_selector.js' %}"></script>
 </body>
 </html>

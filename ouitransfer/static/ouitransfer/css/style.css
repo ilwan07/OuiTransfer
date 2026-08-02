@@ -28,6 +28,7 @@
 * {
     margin: 0;
     font-family: 'Trebuchet MS', sans-serif;
+    color: var(--text-color);
 }
 
 body {
@@ -51,6 +52,13 @@ a, p, label, h1, h2, h3, h4, h5, h6 {
 
 div.spacing {
     padding: 2rem;
+}
+
+div.line {
+    width: 100%;
+    margin-top: 0.8rem;
+    margin-bottom: 0.8rem;
+    border-top: 2px solid var(--sub-color);
 }
 
 header.with-nav {
@@ -129,12 +137,16 @@ h3 {
     min-width: 0;
 }
 
-#formcontent button, #formcontent textarea, #formcontent select, #formcontent input:not([type="checkbox"]) {
+#formcontent button, #formcontent textarea, #formcontent select, #formcontent input:not([type="checkbox"]), input[type="submit"] {
     font-size: 1.2rem;
     padding: 0.2rem;
     margin-top: 0.6rem;
     border: 1.5px solid var(--sub-color);
     border-radius: 8px;
+}
+
+#formcontent select {
+    cursor: grab;
 }
 
 #formcontent button {
@@ -200,7 +212,7 @@ button#reset-path {
     transform: rotate(45deg);
 }
 
-#formcontent textarea, #formcontent select, #formcontent button, #formcontent input:not([type="checkbox"]) {
+#formcontent textarea, #formcontent select, #formcontent button, #formcontent input:not([type="checkbox"]), input[type="submit"] {
     color: var(--text-color);
     background-color: var(--input-bg-color);
     padding-left: 0.5rem;
@@ -219,6 +231,12 @@ button#reset-path {
 
 #formcontent select.path-elem[disabled] {
     cursor: default;
+}
+
+input[type="submit"] {
+    font-size: 1.6rem !important;
+    padding: 0.4rem !important;
+    cursor: grab;
 }
 
 .number-input input {
@@ -278,7 +296,7 @@ button#reset-path {
     min-width: 0;
 }
 
-.inline-input #path-selector {
+#path-selector {
     display: flex;
     flex-wrap: wrap;
     gap: 0;
@@ -296,6 +314,10 @@ button#reset-path {
 #path-selector .path-elem:last-of-type {
     border-top-right-radius: 8px !important;
     border-bottom-right-radius: 8px !important;
+}
+
+div#upload-interface {
+    display: block;
 }
 
 footer {

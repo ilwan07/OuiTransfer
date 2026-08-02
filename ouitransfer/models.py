@@ -4,6 +4,7 @@ from django.utils.translation import gettext_lazy as _
 
 from .utils import md5_hash, enough_space
 
+import os
 import uuid
 from pathlib import Path
 
@@ -15,9 +16,11 @@ class ShareModel(models.Model):
         verbose_name_plural = _("share models")
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    public = models.BooleanField(_("is public"), default=False)
     email = models.EmailField(_("receiver email"), default=None, null=True)
     message = models.TextField(_("message"), default=None, null=True)
     expire_date = models.DateTimeField(_("expiration date"), default=None, null=True)
+    active = models.BooleanField(_("active"), default=True)
 
     def __str__(self):
         return f"share-{self.id.hex}"
@@ -34,6 +37,7 @@ class RequestModel(models.Model):
     message = models.TextField(_("message"), default=None, null=True)
     expire_date = models.DateTimeField(_("expiration date"), default=None, null=True)
     size_limit = models.PositiveIntegerField(_("upload size limit"), default=None, null=True)
+    active = models.BooleanField(_("active"), default=True)
     
     def __str__(self):
         return f"request-{self.id.hex}"
@@ -53,7 +57,8 @@ class FileModel(models.Model):
     file_size = models.PositiveIntegerField(_("file size"), default=None, null=True)
     storage_dir = models.FilePathField(_("storage directory"), default=settings.BASE_STORAGE_PATH)
     upload_completed = models.BooleanField(_("upload completed"), default=False)
-    md5 = models.CharField(_("md5 hex hash"), max_length=32)
+    last_chunk_date = models.DateTimeField(_("date of last received chunk"), default=None, null=True)
+    md5 = models.CharField(_("md5 hex hash"), max_length=32, default=None, null=True)
     
     def filepath(self):
         """Returns the file path on disk"""
@@ -75,7 +80,8 @@ class FileModel(models.Model):
         """Check if the file is stored and unaltered"""
         if not self.on_disk():
             return False  # consider invalid if not found
-        return self.md5 == md5_hash(self.filepath())
+        fpath = self.filepath()
+        return self.md5 == md5_hash(fpath) and self.file_size == os.path.getsize(fpath)
     
     def __str__(self):
         return f"file-{self.id.hex}-[{self.filename}]"

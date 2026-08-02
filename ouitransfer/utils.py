@@ -24,19 +24,38 @@ def md5_hash(file_path:Path, block_size:int=2**25):
     return result
 
 
-def enough_space(dir:Path, file_size:int) -> bool:
+def enough_space(dir:Path, file_size:int):
     """Check if there's enough space in the directory to store file, accounting for safe space"""
     log.debug("Checking available space...")
     if not dir.exists() or not dir.is_dir():
         log.warning(f"Can't find dir {dir.as_posix()}")
         return False  # consider there's no space if the directory doesn't exist
     left = shutil.disk_usage(dir).free - file_size
-    enough = left >= settings.STORAGE_SAFE_SPACE
+    enough:bool = left >= settings.STORAGE_SAFE_SPACE
     if not enough:
         log.warning("Disk space full!")
     else:
         log.debug(f"Enough space left: {left}")
     return enough
+
+def space_left(dir:Path):
+    """Get space left in dir, accounting for safe space"""
+    full_left = shutil.disk_usage(dir).free
+    log.debug(f"Space left in {dir}: {full_left}B = {pretty_space(full_left)}, deducting {pretty_space(settings.STORAGE_SAFE_SPACE)}")
+    return full_left - settings.STORAGE_SAFE_SPACE
+
+def pretty_space(bytes:int):
+    """Returns a string with the specified disk space given in bytes for display with regular units"""
+    if bytes < 0:
+        bytes = 0
+    units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
+    n = 0
+    unit_space = bytes
+    while n < len(units)-1 and unit_space >= 1024:
+        n += 1
+        unit_space /= 1024
+    res = f"{round(unit_space, 2)} {units[n]}"
+    return res
 
 
 def norm_path(path:Path):

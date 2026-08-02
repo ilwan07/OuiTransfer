@@ -5,7 +5,7 @@ from django.contrib.auth import logout
 from django.shortcuts import render, redirect
 from django.templatetags.static import static
 
-from .utils import is_path_legal, list_subdirs, path_breakdown, aliased_to_abs_path
+from .utils import is_path_legal, list_subdirs, path_breakdown, aliased_to_abs_path, space_left, pretty_space
 
 import os
 from pathlib import Path
@@ -60,8 +60,12 @@ def share(request:HttpRequest):
         raise PermissionDenied()
     
     if request.method == "GET":
+        #TODO: dynamic space check
+        bytes_upload_space = space_left(settings.BASE_STORAGE_PATH)
+        pretty_upload_space = pretty_space(bytes_upload_space)
         return render(request, "ouitransfer/admin_share.html",
-                      {"ALLOWED_ROOTS": [f"{cpl[1]}/" if cpl[1] is not None else cpl[0] for cpl in settings.ALLOWED_STORAGE_ROOTS]})
+                      {"ALLOWED_ROOTS": [f"{cpl[1]}/" if cpl[1] is not None else cpl[0] for cpl in settings.ALLOWED_STORAGE_ROOTS],
+                       "bytes_upload_space": bytes_upload_space, "pretty_upload_space": pretty_upload_space})
     
     elif request.method == "POST":
         return HttpResponse("TODO")  #TODO post request in share
@@ -95,6 +99,7 @@ def next_dirs(request:HttpRequest):
 
 
 def default_dir_breakdown(request:HttpRequest):
+    #TODO: remove for better handling
     if not request.user.is_staff:
         log.warning(f"User {request.user.username} tried getting default directory breakdown illegally")
         raise Http404()

@@ -1,6 +1,6 @@
 .env
 db.sqlite3
-.venv
+.venv/
 .vscode/
 __pycache__/
 migrations/
