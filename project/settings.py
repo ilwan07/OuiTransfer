@@ -51,7 +51,7 @@ ALLOWED_STORAGE_ROOTS = [
 
 STORAGE_SAFE_SPACE = 2 * 2**30  # Consider storage full if less than this space is free (in bytes)
 UPLOAD_CHUNK_SIZE = 5 * 2**20  # Size of each chunk to upload
-UPLOAD_TIMEOUT = 5 * 60  # How many seconds after last chunk received to consider an upload/share to be cancelled
+UPLOAD_TIMEOUT = 10 * 60  # How many seconds after last chunk received to consider an upload/share to be cancelled
 
 # Email configuration
 
@@ -124,9 +124,9 @@ LOGGING = {
     "handlers": {
         "file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": LOG_DIR / "django.log",
-            "maxBytes": 5 * 2**20,
-            "backupCount": 0,
+            "filename": LOG_DIR / "ouitransfer.log",
+            "maxBytes": 10 * 2**20,
+            "backupCount": 5,
             "formatter": "simple",
         },
     },

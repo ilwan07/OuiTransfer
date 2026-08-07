@@ -13,6 +13,20 @@ const error = document.getElementById("error");
 const errorbold = document.getElementById("errorbold");
 const errorbr = document.getElementById("errorbr");
 const maxBytesSpan = document.getElementById("max-bytes");
+const uploadChunkSize = parseInt(document.getElementById("upload-chunk-size").textContent);
+
+// urls for the upload workflow, read from data-attributes set in the template
+const uploadContainer = document.getElementById("upload-container");
+const urls = {
+    startShare: uploadContainer.dataset.startShareUrl,
+    startFile: uploadContainer.dataset.startFileUrl,
+    uploadChunk: uploadContainer.dataset.uploadChunkUrl,
+    finishFile: uploadContainer.dataset.finishFileUrl,
+    finishShare: uploadContainer.dataset.finishShareUrl,
+};
+
+const MAX_PARALLEL_CHUNKS = 4;  // number of chunks from a file to upload in parallel
+const MAX_CHUNK_RETRIES = 10;  // max upload retries for a chunk
 
 // keep selected files in an array so we can add or remove before submit
 var selectedFiles = [];
@@ -24,6 +38,11 @@ function uid() {
     }
     // fallback: time + random
     return Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+}
+
+function csrftoken() {
+    // read the csrf token from django
+    return document.querySelector("input[name=csrfmiddlewaretoken]").value;
 }
 
 function renderList() {
@@ -164,7 +183,199 @@ function maxTotalBytes() {
     return parseInt(maxBytesSpan.textContent);
 }
 
-form.addEventListener("submit", (ev) => {
+function showError(message) {
+    errorbold.textContent = message;
+    error.style.display = "";
+    errorbr.style.display = "";
+    progressWrap.style.display = "none";
+    progressBar.value = 0;
+    progressText.textContent = "0%";
+    submitBtn.disabled = false;
+    addBtn.disabled = false;
+}
+
+
+async function postForm(url, formData) {
+    // wrapper for a single post request
+    const response = await fetch(url, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrftoken() },
+        body: formData,
+    });
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+    return response.json();
+}
+
+
+function uploadChunkOnce(url, formData, onProgress) {
+    // upload a chunk once with xhr
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", url);
+        xhr.setRequestHeader("X-CSRFToken", csrftoken());
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) { onProgress(e.loaded); }
+        };
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try { resolve(JSON.parse(xhr.responseText)); }
+                catch (e) { resolve({}); }
+            } else {
+                reject(new Error(`HTTP ${xhr.status}`));
+            }
+        };
+        xhr.onerror = () => reject(new Error("Network error"));
+        xhr.send(formData);
+    });
+}
+
+
+async function uploadChunkWithRetry(url, buildFormData, onProgress) {
+    // retry a chunk a few times with a short backoff before giving up
+    let attempt = 0;
+    while (true) {
+        try {
+            return await uploadChunkOnce(url, buildFormData(), onProgress);
+        } catch (err) {
+            attempt += 1;
+            if (attempt > MAX_CHUNK_RETRIES) { throw err; }
+            onProgress(0);  // failed attempt: don't keep its partial bytes counted
+            await new Promise(r => setTimeout(r, 500 * attempt));
+        }
+    }
+}
+
+
+function makeProgressTracker(totalBytes) {
+    // track upload progress across all files and drives the progress bar
+    const perFile = new Map();
+    return {
+        update(fileId, bytes) {
+            perFile.set(fileId, bytes);
+            let sum = 0;
+            for (const v of perFile.values()) { sum += v; }
+            const pct = totalBytes > 0 ? Math.min(100, Math.round((sum / totalBytes) * 100)) : 100;
+            progressBar.value = pct;
+            progressText.textContent = `${pretty_space(sum)} / ${pretty_space(totalBytes)}`;
+        },
+    };
+}
+
+
+async function uploadFileChunks(shareId, fileId, file, progressTracker) {
+    // upload every chunk of one file in parallel
+    const totalChunks = Math.ceil(file.size / uploadChunkSize);
+    const chunkBytes = new Array(totalChunks).fill(0);
+    let nextIndex = 0;
+
+    function reportChunkProgress(index, loaded) {
+        chunkBytes[index] = loaded;
+        const uploaded = chunkBytes.reduce((a, b) => a + b, 0);
+        progressTracker.update(fileId, uploaded);
+    }
+
+    async function worker() {
+        while (nextIndex < totalChunks) {
+            const index = nextIndex;
+            nextIndex += 1;
+            const start = index * uploadChunkSize;
+            const end = Math.min(start + uploadChunkSize, file.size);
+            const blob = file.slice(start, end);
+
+            await uploadChunkWithRetry(
+                urls.uploadChunk,
+                () => {
+                    const fd = new FormData();
+                    fd.append("share_id", shareId);
+                    fd.append("file_id", fileId);
+                    fd.append("chunk_index", index);
+                    fd.append("total_chunks", totalChunks);
+                    fd.append("chunk", blob);
+                    return fd;
+                },
+                (loaded) => reportChunkProgress(index, loaded)
+            );
+        }
+    }
+
+    const workerCount = Math.min(MAX_PARALLEL_CHUNKS, totalChunks) || 1;
+    await Promise.all(Array.from({ length: workerCount }, worker));
+}
+
+// full upload sequence: start share -> per file (start -> chunks -> finish) -> finish share
+async function runUpload() {
+    // submit form metadata first for initial validation
+    const shareFd = new FormData(form);
+    const shareData = await postForm(urls.startShare, shareFd);
+    disableUi(true);  // now disable ui while uploading
+    const shareId = shareData.share_id;
+
+    const progressTracker = makeProgressTracker(totalSelectedBytes());
+
+    // upload files one by one, chunks within a file in parallel
+    for (const item of selectedFiles) {
+        const startFd = new FormData();
+        startFd.append("share_id", shareId);
+        startFd.append("filename", item.file.name);
+        startFd.append("file_size", item.file.size);
+        const fileData = await postForm(urls.startFile, startFd);
+        const fileId = fileData.file_id;
+
+        await uploadFileChunks(shareId, fileId, item.file, progressTracker);
+
+        const finishFileFd = new FormData();
+        finishFileFd.append("share_id", shareId);
+        finishFileFd.append("file_id", fileId);
+        await postForm(urls.finishFile, finishFileFd);
+    }
+
+    // tell the server we sent everything
+    const finishShareFd = new FormData();
+    finishShareFd.append("share_id", shareId);
+    await postForm(urls.finishShare, finishShareFd);
+}
+
+function disableUi(disable) {
+    // disable or enable ui form
+    submitBtn.disabled = disable;
+    addBtn.disabled = disable;
+    document.querySelectorAll('button[class="remove-btn"]').forEach((btn) => {
+        btn.disabled = disable;
+    });
+    document.getElementById("public").disabled = disable;
+    document.getElementById("send-email").disabled = disable;
+    document.getElementById("email-address").disabled = disable;
+    document.getElementById("email-lang").disabled = disable;
+    document.getElementById("content").disabled = disable;
+    document.getElementById("expire").disabled = disable;
+    document.getElementById("delay").disabled = disable;
+    document.getElementById("delay-unit").disabled = disable;
+    document.querySelectorAll('button[target="delay"]').forEach((btn) => {
+        btn.disabled = disable;
+    });
+    document.getElementById("reset-path").disabled = disable;
+    document.querySelectorAll('select[class="path-elem"]').forEach((sel) => {
+        sel.disabled = disable;
+    });
+    if (!disable) {
+        // keep some stuff disabled if needed
+        if (!document.getElementById("send-email").checked) {
+            document.getElementById("email-address").disabled = true;
+            document.getElementById("email-lang").disabled = true;
+        }
+        if (!document.getElementById("expire").checked) {
+            document.getElementById("delay").disabled = true;
+            document.getElementById("delay-unit").disabled = true;
+            document.querySelectorAll('button[target="delay"]').forEach((btn) => {
+                btn.disabled = true;
+            });
+        }
+    }
+}
+
+form.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     errorbold.textContent = "";
     error.style.display = "none";
@@ -175,27 +386,27 @@ form.addEventListener("submit", (ev) => {
     if (totalBytes > maxTotalBytes()) {
         let total_pretty = pretty_space(totalBytes);
         let max_pretty = pretty_space(maxTotalBytes());
-        errorbold.textContent = interpolate(gettext("The uploaded files are too large. The available space is %(max_pretty)s, you tried to upload %(total_pretty)s."),
-                                            {max_pretty: max_pretty, total_pretty: total_pretty}, true);
-        error.style.display = "";
-        errorbr.style.display = "";
-        progressWrap.style.display = "none";
-        progressBar.value = 0;
-        progressText.textContent = "0%";
+        showError(interpolate(gettext("The uploaded files are too large. The available space is %(max_pretty)s, you tried to upload %(total_pretty)s."),
+                               {max_pretty: max_pretty, total_pretty: total_pretty}, true));
         return;
     }
 
-    // build formdata from the form
-    const fd = new FormData(form);
-
-    // append the files we stored in selectedfiles
-    selectedFiles.forEach(item => fd.append("files[]", item.file));
-    
-    // disable ui while uploading
+    // disable some ui now
     submitBtn.disabled = true;
     addBtn.disabled = true;
 
-    //TODO: chunked upload
+    progressWrap.style.display = "";
+    progressBar.value = 0;
+    progressText.textContent = `0B / ${pretty_space(totalBytes)}`;
+
+    try {
+        await runUpload();
+        // TODO: redirect to a success page
+        progressText.textContent = gettext("Done!");
+    } catch (err) {
+        showError(gettext("Upload failed: ") + String(err.message || err));
+        disableUi(false);
+    }
 });
 
 // Initial render

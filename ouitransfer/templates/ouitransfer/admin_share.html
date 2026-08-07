@@ -71,7 +71,12 @@
 
         <div class="line"></div>
 
-        <div id="upload-container">
+        <div id="upload-container"
+        data-start-share-url="{%url '_start_share'%}"
+        data-start-file-url="{%url '_start_file_share'%}"
+        data-upload-chunk-url="{%url '_upload_chunk_share'%}"
+        data-finish-file-url="{%url '_finish_file_share'%}"
+        data-finish-share-url="{%url '_finish_share'%}">
             <input id="file-input" type="file" style="display:none" multiple>
             <div id="upload-interface">
                 <button type="button" id="add-files-btn">{%trans "Add files"%}</button>
@@ -82,8 +87,9 @@
             <ul id="file-list"></ul>
             <div id="progress-wrap" style="display:none">
                 <progress id="upload-progress" max=100 value=0></progress>
-                <p id="progress-text">0%</p>
+                <p id="progress-text">0B / 0B</p>
             </div>
+            <span id="upload-chunk-size" style="display:none">{{upload_chunk_size}}</span>
         </div>
 
         <div class="line"></div>
@@ -98,7 +104,7 @@
 <script src="{% url 'javascript-catalog' %}"></script>
 <script src="{% static 'ouitransfer/js/admin_share_interact.js' %}"></script>
 <script type="text/javascript">const file_asset_path = "{% static 'ouitransfer/assets/file.svg' %}";</script>
-<script src="{% static 'ouitransfer/js/admin_share_upload.js' %}"></script>
 <script src="{% static 'ouitransfer/js/path_selector.js' %}"></script>
+<script src="{% static 'ouitransfer/js/admin_share_upload.js' %}"></script>
 </body>
 </html>
