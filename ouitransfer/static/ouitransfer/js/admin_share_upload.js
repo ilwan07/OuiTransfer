@@ -12,7 +12,6 @@ const submitBtn = document.getElementById("submit-btn");
 const error = document.getElementById("error");
 const errorbold = document.getElementById("errorbold");
 const errorbr = document.getElementById("errorbr");
-const maxBytesSpan = document.getElementById("max-bytes");
 const uploadChunkSize = parseInt(document.getElementById("upload-chunk-size").textContent);
 
 // urls for the upload workflow, read from data-attributes set in the template
@@ -122,19 +121,6 @@ function renderList() {
     });
 }
 
-function pretty_space(bytes) {
-    // returns a string with the specified disk space given in bytes for display with regular units
-    if (bytes < 0) {bytes = 0;}
-    const units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"];
-    let n = 0;
-    let unit_space = bytes;
-    while (n < units.length - 1 && unit_space >= 1024) {
-        n += 1;
-        unit_space /= 1024;
-    }
-    const rounded = Math.round(unit_space * 100) / 100;
-    return `${rounded} ${units[n]}`;
-}
 
 function removeFile(id) {
     const idx = selectedFiles.findIndex(x => x.id === id);
@@ -178,10 +164,6 @@ function totalSelectedBytes() {
     return selectedFiles.reduce((s, i) => s + (i.file.size || 0), 0);
 }
 
-function maxTotalBytes() {
-    // return the remaining space on the server in bytes
-    return parseInt(maxBytesSpan.textContent);
-}
 
 function showError(message) {
     errorbold.textContent = message;
@@ -271,12 +253,14 @@ async function uploadFileChunks(shareId, fileId, file, progressTracker) {
     let nextIndex = 0;
 
     function reportChunkProgress(index, loaded) {
+        // update upload progress
         chunkBytes[index] = loaded;
         const uploaded = chunkBytes.reduce((a, b) => a + b, 0);
         progressTracker.update(fileId, uploaded);
     }
 
     async function worker() {
+        // worker to send a single chunk
         while (nextIndex < totalChunks) {
             const index = nextIndex;
             nextIndex += 1;
@@ -291,12 +275,32 @@ async function uploadFileChunks(shareId, fileId, file, progressTracker) {
                     fd.append("share_id", shareId);
                     fd.append("file_id", fileId);
                     fd.append("chunk_index", index);
-                    fd.append("total_chunks", totalChunks);
                     fd.append("chunk", blob);
                     return fd;
                 },
                 (loaded) => reportChunkProgress(index, loaded)
             );
+            if (result.status < 200 || result.status >= 300) {
+                throw new Error(`HTTP ${result.status}`);  // http error
+            }
+            if (!result.ok) {  // failed chunk upload or write
+                switch (shareData.error) {
+                    case "missing_args":
+                        throw new Error(gettext("Missing arguments while uploading chunk"));
+                    case "invalid_index":
+                        throw new Error(gettext("Invalid chunk index"));
+                    case "nonexistent_file":
+                        throw new Error(gettext("The file for this chunk does not exist"));
+                    case "chunk_too_large":
+                        throw new Error(gettext("The uploaded chunk is too large"));
+                    case "write_overflow":
+                        throw new Error(gettext("Tried to write a chunk outside of the allocated size"));
+                    case "write_error":
+                        throw new Error(gettext("Error when trying to write a chunk"));
+                    default:
+                        throw new Error(gettext("Unknown chunk submission error"));
+                }
+            }
         }
     }
 
@@ -304,34 +308,77 @@ async function uploadFileChunks(shareId, fileId, file, progressTracker) {
     await Promise.all(Array.from({ length: workerCount }, worker));
 }
 
-// full upload sequence: start share -> per file (start -> chunks -> finish) -> finish share
 async function runUpload() {
+    // full upload sequence: start share -> per file (start -> chunks -> finish) -> finish share
     // submit form metadata first for initial validation
     const shareFd = new FormData(form);
     const shareData = await postForm(urls.startShare, shareFd);
     disableUi(true);  // now disable ui while uploading
+    if (shareData.status < 200 || shareData.status >= 300) {
+        throw new Error(`HTTP ${shareData.status}`);  // http error
+    }
+    if (!shareData.ok) {  // failed form validation
+        switch (shareData.error) {
+            case "invalid_email":
+                throw new Error(gettext("Invalid email address"));
+            case "invalid_email_lang":
+                throw new Error(gettext("Invalid email language"));
+            case "invalid_delay_unit":
+                throw new Error(gettext("Invalid deletion delay unit"));
+            case "invalid_delay_value":
+                throw new Error(gettext("Invalid deletion delay value"));
+            case "invalid_path":
+                throw new Error(gettext("Invalid or illegal storing path"));
+            default:
+                throw new Error(gettext("Unknown form validation error"));
+        }
+    }
     const shareId = shareData.share_id;
 
     const progressTracker = makeProgressTracker(totalSelectedBytes());
 
     // upload files one by one, chunks within a file in parallel
     for (const item of selectedFiles) {
+        // initialize file upload
         const startFd = new FormData();
         startFd.append("share_id", shareId);
         startFd.append("filename", item.file.name);
         startFd.append("file_size", item.file.size);
         const fileData = await postForm(urls.startFile, startFd);
+        if (fileData.status < 200 || fileData.status >= 300) {  // http error
+            throw new Error(`HTTP ${fileData.status}`);
+        }
+        if (!fileData.ok) {  // failed file init
+            switch (fileData.error) {
+                case "missing_args":
+                    throw new Error(gettext("Missing arguments while initializing file upload"));
+                case "nonexistant_share":
+                    throw new Error(gettext("The share object does not exist"));
+                case "no_space":
+                    throw new Error(gettext("Not enough space to upload the file, try refreshing the storage directory to see the available space"));
+                case "filename_too_long":
+                    throw new Error(gettext("The file name is too long"));
+                case "invalid_size":
+                    throw new Error(gettext("The file size is invalid"));
+                case "allocation_error":
+                    throw new Error(gettext("Failed to allocate file on disk"));
+                default:
+                    throw new Error(gettext("Unknown file upload initialization error"));
+            }
+        }
         const fileId = fileData.file_id;
-
+        
+        // upload file chunk by chunk
         await uploadFileChunks(shareId, fileId, item.file, progressTracker);
 
+        // finish file upload
         const finishFileFd = new FormData();
         finishFileFd.append("share_id", shareId);
         finishFileFd.append("file_id", fileId);
         await postForm(urls.finishFile, finishFileFd);
     }
 
-    // tell the server we sent everything
+    // finish full submission
     const finishShareFd = new FormData();
     finishShareFd.append("share_id", shareId);
     await postForm(urls.finishShare, finishShareFd);
@@ -381,11 +428,17 @@ form.addEventListener("submit", async (ev) => {
     error.style.display = "none";
     errorbr.style.display = "none";
 
+    // need at least one file
+    if (selectedFiles.length == 0) {
+        showError(gettext("You need to upload at least one file."));
+        return;
+    }
+
     // client-side total size check before upload
     const totalBytes = totalSelectedBytes();
-    if (totalBytes > maxTotalBytes()) {
+    if (totalBytes > max_total_bytes) {
         let total_pretty = pretty_space(totalBytes);
-        let max_pretty = pretty_space(maxTotalBytes());
+        let max_pretty = pretty_space(max_total_bytes);
         showError(interpolate(gettext("The uploaded files are too large. The available space is %(max_pretty)s, you tried to upload %(total_pretty)s."),
                                {max_pretty: max_pretty, total_pretty: total_pretty}, true));
         return;

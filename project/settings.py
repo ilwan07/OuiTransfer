@@ -47,6 +47,7 @@ ALLOWED_STORAGE_ROOTS = [
     ('/home/ilwan/', 'Home'),
     ('/mnt/nas/', 'NAS'),
     ('/var/tmp/', None),
+    ('/tmp/', 'TMP'),
 ]
 
 STORAGE_SAFE_SPACE = 2 * 2**30  # Consider storage full if less than this space is free (in bytes)
@@ -74,6 +75,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_crontab',
     'ouitransfer.apps.OuitransferConfig',
 ]
 
@@ -175,6 +177,11 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Jobs
+
+CRONJOBS = [
+    ('*/5 * * * *', 'ouitransfer.jobs.myjob')  # run job every 5min
+]
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/

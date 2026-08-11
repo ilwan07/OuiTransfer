@@ -1,8 +1,13 @@
 from django.conf import settings
+from django.http import QueryDict
+from django.utils import timezone
 
 import os
+import re
 import shutil
 import hashlib
+import calendar
+from datetime import datetime, timedelta
 from pathlib import Path
 import logging
 
@@ -54,7 +59,10 @@ def pretty_space(bytes:int):
     while n < len(units)-1 and unit_space >= 1024:
         n += 1
         unit_space /= 1024
-    res = f"{round(unit_space, 2)} {units[n]}"
+    unit_space = round(unit_space, 2)
+    if float(unit_space).is_integer():
+        unit_space = int(unit_space)
+    res = f"{unit_space} {units[n]}"
     return res
 
 
@@ -69,12 +77,15 @@ def norm_path(path:Path):
 
 def is_path_legal(path:Path):
     """Ensure that the path is legal to save files while avoiding directory traversal"""
+    if not path:
+        return False
     legal_roots = [os.path.abspath(Path(root[0]).absolute().as_posix()) for root in settings.ALLOWED_STORAGE_ROOTS]
     npath = norm_path(path)
     pnpath = Path(npath)
     for root in legal_roots:
         if npath.startswith(root) and pnpath.is_dir() and os.access(pnpath, os.W_OK) and not is_transfer_dir(pnpath):
-            if settings.ALLOW_DOTFILES or all([not elem.startswith(".") or elem=="." for elem in npath.split("/")]):
+            after_root = npath[len(root):]
+            if settings.ALLOW_DOTFILES or all([not elem.startswith(".") or elem=="." for elem in after_root.split("/")]):
                 return True
     log.warning(f"Blocked illegal path: {path.as_posix()}")
     return False
@@ -131,3 +142,101 @@ def aliased_to_abs_path(aliased:str):
             return Path(f"{cpl[0]}/{suffix}")
     log.warning(f"Inexistant path alias: {aliased}")
     return None
+
+
+def rebuild_path(post:QueryDict):
+    """Takes a form and rebuilds the selected path from the selections"""
+    index = 0
+    built_path = ""
+    while True:
+        next_elem = post.get(f"path-{index}")
+        if next_elem is None:
+            return built_path
+        built_path += next_elem
+        index += 1
+        
+
+
+def validate_email(email:str):
+    """Returns True if the given email is valid"""
+    if len(email) > 254:
+        return False
+    email_regex = r'([A-Za-z0-9]+[.-_])*[A-Za-z0-9]+@[A-Za-z0-9-]+(\.[A-Z|a-z]{2,})+'
+    matching = re.fullmatch(email_regex, email)
+    return bool(matching)
+
+
+def add_months(dt:datetime, n:int):
+    """Add n months to a datetime, use the first day of the month after if adding the months result in an invalid day"""
+    month_index = dt.month - 1 + n
+    year = dt.year + month_index // 12
+    month = month_index % 12 + 1
+
+    # use the date if valid, else take the next day
+    last_day = calendar.monthrange(year, month)[1]
+    if dt.day <= last_day:
+        return dt.replace(year=year, month=month, day=dt.day)
+    else:
+        # take the first of the next month
+        month += 1
+        if month > 12:
+            month = 1
+            year += 1
+        return dt.replace(year=year, month=month, day=1)
+    
+
+def get_posint(val:str):
+    """Convert a string to a positive integer, None if not possible"""
+    if val is None or not all([c in "0123456789" for c in val]):
+        res = None
+    else:
+        res = int(val)
+    return res
+
+
+def validate_share_form(post:QueryDict):
+    """Returns ('ok', dict) with a clean dict if the form is valid, else (error, None) using a short error code"""
+    public = post.get("public", "off") == "on"
+    # email
+    send_email = post.get("send-email", "off") == "on"
+    email_address = None
+    email_lang = None
+    if send_email:
+        email_address = post.get("email-address")
+        if not email_address or not validate_email(email_address):
+            return ("invalid_email", None)
+        email_lang = post.get("email-lang")
+        if email_lang is None or email_lang not in [lang[0] for lang in settings.LANGUAGES]:
+            return ("invalid_email_lang")
+    # message
+    message = post.get("content", "").strip()
+    if message == "":
+        message = None
+    # expiration date
+    expire = post.get("expire", "off") == "on"
+    expire_date = None
+    if expire:
+        delay_unit = post.get("delay-unit")
+        if delay_unit not in ("minutes", "hours", "days", "months"):
+            return ("invalid_delay_unit", None)
+        delay_value = post.get("delay")
+        if get_posint(delay_value) is None or int(delay_value) <= 0:
+            return ("invalid_delay_value", None)
+        delay_value = int(delay_value)
+        expire_date = timezone.now()
+        if delay_unit == "minutes":
+            expire_date += timedelta(minutes=delay_value)
+        elif delay_unit == "hours":
+            expire_date += timedelta(hours=delay_value)
+        elif delay_unit == "days":
+            expire_date += timedelta(days=delay_value)
+        elif delay_unit == "months":
+            expire_date = add_months(expire_date, delay_value)
+    # storage path
+    store_path = aliased_to_abs_path(rebuild_path(post))
+    if not is_path_legal(store_path):
+        return ("invalid_path", None)
+    store_path = norm_path(store_path)
+    # return the clean dict
+    return ("ok", {"public":public, "email_address":email_address, "email_lang":email_lang,
+                   "message":message, "expire_date":expire_date, "store_path":store_path})

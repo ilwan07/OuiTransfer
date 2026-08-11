@@ -3,9 +3,12 @@ const info_tag = document.getElementById("path-info");  // tag to display info a
 const next_dirs_url = path_selector.getAttribute("data-next-dirs-url");
 const reset_path_button = document.getElementById("reset-path");
 const default_dir_breakdown_url = path_selector.getAttribute("data-default-dir-breakdown-url");
+const maxBytesSpan = document.getElementById("max-bytes");
+const availableSpaceSpan = document.getElementById("available-space");
 
 var path_selects = [document.getElementById("root-path")];  // array of the selects in the path selector
 
+var max_total_bytes = parseInt(maxBytesSpan.textContent);  // free space on the server
 
 // make the select tag width fit the selection
 function fit_select(select) {
@@ -31,13 +34,26 @@ function get_full_path(last_index) {
     return full_path;
 }
 
+function pretty_space(bytes) {
+    // returns a string with the specified disk space given in bytes for display with regular units
+    if (bytes < 0) {bytes = 0;}
+    const units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"];
+    let n = 0;
+    let unit_space = bytes;
+    while (n < units.length - 1 && unit_space >= 1024) {
+        n += 1;
+        unit_space /= 1024;
+    }
+    const rounded = Math.round(unit_space * 100) / 100;
+    return `${rounded} ${units[n]}`;
+}
+
 // enable/disable each input from an array
 function set_enabled(elems, enable) {
     elems.forEach(function(elem) {elem.disabled=!enable;});
 }
 
 // handle selection of a new path from one of the selects
-//TODO update available space
 async function update_dirs() {
     set_enabled(path_selects, false);  // disable selects while processing
     info_tag.textContent = gettext("Loading...");
@@ -63,6 +79,8 @@ async function update_dirs() {
             info_tag.textContent = gettext("Request error: HTTP") + response.status;
         } else {
             const response_json = await response.json();
+            max_total_bytes = response_json.free_space;
+            availableSpaceSpan.textContent = pretty_space(max_total_bytes);
             if (response_json.dirs.length > 0) {
                 // create and add the new select
                 const new_select = document.createElement("select");

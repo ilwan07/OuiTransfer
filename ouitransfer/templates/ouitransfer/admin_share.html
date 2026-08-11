@@ -81,7 +81,7 @@
             <div id="upload-interface">
                 <button type="button" id="add-files-btn">{%trans "Add files"%}</button>
                 <span id="selected-count">{%trans "No files selected"%}</span>
-                <br><small>{%trans "Available space:"%} {{pretty_upload_space}}</small> | <small>{%trans "Selection size:"%} <span id="selection-size">0B</span></small>
+                <br><small>{%trans "Available space:"%} <span id="available-space">{{pretty_upload_space}}</span></small> | <small>{%trans "Selection size:"%} <span id="selection-size">0B</span></small>
                 <span id="max-bytes" style="display:none">{{bytes_upload_space}}</span>
             </div id="upload-content">
             <ul id="file-list"></ul>

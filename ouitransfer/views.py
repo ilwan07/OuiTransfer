@@ -2,10 +2,12 @@ from django.conf import settings
 from django.http import HttpRequest, HttpResponse, Http404, HttpResponseNotAllowed, JsonResponse
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth import logout
+from django.utils import timezone
 from django.shortcuts import render, redirect
 from django.templatetags.static import static
 
-from .utils import is_path_legal, list_subdirs, path_breakdown, aliased_to_abs_path, space_left, pretty_space
+from .utils import is_path_legal, list_subdirs, path_breakdown, aliased_to_abs_path, space_left, pretty_space, validate_share_form, get_posint
+from .models import ShareModel, RequestModel, FileModel
 
 import os
 from pathlib import Path
@@ -59,7 +61,6 @@ def share(request:HttpRequest):
         raise PermissionDenied()
     
     if request.method == "GET":
-        #TODO: dynamic space check
         bytes_upload_space = space_left(settings.BASE_STORAGE_PATH)
         pretty_upload_space = pretty_space(bytes_upload_space)
         return render(request, "ouitransfer/admin_share.html",
@@ -80,16 +81,25 @@ def start_share(request:HttpRequest):
     if request.method != "POST":
         log.warning(f"Invalid request method for share start: {request.method}")
         return HttpResponseNotAllowed(["POST"])
-    print(f"start_share -> POST:{request.POST}")
-    # TODO: validate public/email/message/expire/delay/delay-unit fields
-    # TODO: rebuild and validate the storage path from path-0, path-1... fields, check against is_path_legal
-    # TODO: create and save a ShareModel with the validated data
-    # TODO: return JsonResponse({"share_id": str(share.id)})
-    return JsonResponse({"share_id": "TODO"})
+    print(f"start_share -> POST:{request.POST}")  #NOTE: remove temp print
+    # validate form and path
+    status, frm = validate_share_form(request.POST)
+    if not status == "ok":
+        return JsonResponse({"ok": False, "error": status})
+    ShareObject = ShareModel(public=frm["public"], email=frm["email_address"], email_lang=frm["email_lang"],
+                             message=frm["message"], expire_date=frm["expire_date"])
+    ShareObject.store_path = str(Path(frm["store_path"]) / ShareObject.id.hex)
+    ShareObject.save()
+    # create folder and info file
+    share_dir = Path(frm["store_path"]) / ShareObject.id.hex
+    os.mkdir(share_dir)
+    open(share_dir/f".ouitransfer_dir_{ShareObject.id.hex}", "w").close()
+    return JsonResponse({"ok": True, "share_id": ShareObject.id.hex})
 
 
 def start_file_share(request:HttpRequest):
     """Registers a new file under a share and returns its id for chunk uploads"""
+    #FIXME: clean delete share on error
     if not request.user.is_staff:
         log.warning(f"Tried illegal share file start. Headers: {request.headers}")
         raise PermissionDenied()
@@ -99,16 +109,37 @@ def start_file_share(request:HttpRequest):
     share_id = request.POST.get("share_id")
     filename = request.POST.get("filename")
     file_size = request.POST.get("file_size")
-    print(f"start_file_share -> share_id: {share_id} | filename: {filename} | file_size: {file_size}")
-    # TODO: fetch the ShareModel by share_id, 404 if missing
-    # TODO: check remaining space (enough_space) against file_size
-    # TODO: create and save a FileModel(share=share, filename=filename, file_size=file_size)
-    # TODO: return JsonResponse({"file_id": str(file.id)})
-    return JsonResponse({"file_id": "TODO"})
+    if filename is not None:
+        filename = filename.replace("/", "")
+    
+    if None in (share_id, filename, file_size) or filename == "":
+        return JsonResponse({"ok": False, "error": "missing_args"})
+    if len(filename) > 255:
+        return JsonResponse({"ok": False, "error": "filename_too_long"})
+    file_size = get_posint(file_size)
+    if file_size is None:
+        return JsonResponse({"ok": False, "error": "invalid_size"})
+    print(f"start_file_share -> share_id: {share_id} | filename: {filename} | file_size: {file_size}")  #NOTE: remove temp print
+    try:
+        ShareObject = ShareModel.objects.get(id=share_id)
+    except ShareModel.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "nonexistant_share"})
+    if file_size > space_left(ShareObject.store_path):
+        return JsonResponse({"ok": False, "error": "no_space"})
+    
+    FileObject = FileModel(share=ShareObject, filename=filename, file_size=file_size)
+    FileObject.save()
+    # preallocate file on disk
+    try:
+        os.truncate(str(FileObject.filepath()), FileObject.file_size)
+    except Exception as e:
+        log.error(f"Error allocating file {FileObject.id.hex}: {e}")
+        return JsonResponse({"ok": False, "error": "allocation_error"})
+    return JsonResponse({"ok": True, "file_id": FileObject.id.hex})
 
 
 def upload_chunk_share(request:HttpRequest):
-    """Receives one chunk and writes it to temp storage, keyed by file id and chunk index"""
+    """Receives one chunk and writes it to the storage using file id and chunk index"""
     if not request.user.is_staff:
         log.warning(f"Tried illegal share chunk upload. Headers: {request.headers}")
         raise PermissionDenied()
@@ -117,17 +148,39 @@ def upload_chunk_share(request:HttpRequest):
         return HttpResponseNotAllowed(["POST"])
     file_id = request.POST.get("file_id")
     chunk_index = request.POST.get("chunk_index")
-    total_chunks = request.POST.get("total_chunks")
     chunk = request.FILES.get("chunk")
-    print(f"upload_chunk_share -> file_id: {file_id} | chunk_index: {chunk_index} | total_chunks: {total_chunks}")
-    # TODO: fetch the FileModel by file_id, 404 if missing
-    # TODO: write chunk to e.g. <tmp_dir>/<file_id>/<chunk_index>.part
-    # TODO: update file.last_chunk_date, save
+    if None in (file_id, chunk_index, chunk):
+        return JsonResponse({"ok": False, "error": "missing_args"})
+    chunk_index = get_posint(chunk_index)
+    if chunk_index is None:
+        return JsonResponse({"ok": False, "error": "invalid_index"})
+    print(f"upload_chunk_share -> file_id: {file_id} | chunk_index: {chunk_index}")  #NOTE: remove temp print
+    try:
+        FileObject =  FileModel.objects.get(id=file_id)
+    except FileModel.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "nonexistant_file"})
+    if chunk.size > settings.UPLOAD_CHUNK_SIZE:
+        return JsonResponse({"ok": False, "error": "chunk_too_large"})
+    offset = chunk_index * settings.UPLOAD_CHUNK_SIZE
+    if offset + chunk.size > FileObject.file_size:
+        log.warning(f"Tried to upload overflow chunk. Headers: {request.headers}")
+        return JsonResponse({"ok": False, "error": "write_overflow"})
+    chunk_bytes = chunk.read()
+    file = os.open(str(FileObject.filepath()), os.O_WRONLY)
+    try:
+        os.pwrite(file, chunk_bytes, offset)
+    except Exception as e:
+        log.error(f"Error writing chunk to file {FileObject.id.hex}: {e}")
+        return JsonResponse({"ok": False, "error": "write_error"})
+    finally:
+        os.close(file)
+    FileObject.last_chunk_date = timezone.now()
+    FileObject.save()
     return JsonResponse({"ok": True})
 
 
 def finish_file_share(request:HttpRequest):
-    """Assembles all received chunks into the final file and verifies its integrity"""
+    """Finalize file creation and start file verification (hashing and antivirus)"""
     if not request.user.is_staff:
         log.warning(f"Tried illegal share file finish. Headers: {request.headers}")
         raise PermissionDenied()
@@ -135,7 +188,7 @@ def finish_file_share(request:HttpRequest):
         log.warning(f"Invalid request method for share file finish: {request.method}")
         return HttpResponseNotAllowed(["POST"])
     file_id = request.POST.get("file_id")
-    print(f"finish_file_share -> file_id: {file_id}")
+    print(f"finish_file_share -> file_id: {file_id}")  #NOTE: remove temp print
     # TODO: fetch the FileModel by file_id
     # TODO: concatenate the temp chunk parts, in index order, into file.filepath()
     # TODO: verify assembled size == file.file_size; compute and store file.md5
@@ -152,7 +205,7 @@ def finish_share(request:HttpRequest):
         log.warning(f"Invalid request method for share finish: {request.method}")
         return HttpResponseNotAllowed(["POST"])
     share_id = request.POST.get("share_id")
-    print(f"finish_share -> share_id: {share_id}")
+    print(f"finish_share -> share_id: {share_id}")  #NOTE: remove temp print
     # TODO: fetch the ShareModel, verify all related FileModel rows have upload_completed=True
     # TODO: send the notification email if send-email was checked
     return JsonResponse({"ok": True})
@@ -176,7 +229,7 @@ def next_dirs(request:HttpRequest):
         raise Http404()
     
     # get writable directories
-    response = {"dirs": list_subdirs(realpath)}
+    response = {"dirs": list_subdirs(realpath), "free_space": space_left(realpath)}
     log.debug(f"Served next directories after {realpath}")
     return JsonResponse(response)
 
