@@ -3,7 +3,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from .utils import md5_hash
+from .utils import md5_hash, antivirus_scan
 
 import os
 import uuid
@@ -28,7 +28,16 @@ class ShareModel(models.Model):
     expire_date = models.DateTimeField(_("expiration date"), default=None, null=True)
     store_path = models.CharField(_("storage directory"), max_length=4096, default=None, null=True)
     upload_completed = models.BooleanField(_("upload completed"), default=False)
+    last_chunk_date = models.DateTimeField(_("date of last received chunk"), default=timezone.now)
     active = models.BooleanField(_("active"), default=True)  # can be deleted manually
+    
+    def is_active(self):
+        if not self.active:
+            return False
+        if self.expire_date is not None and timezone.now() > self.expire_date:
+            self.active = False  # update status if not done before by the job
+            return False
+        return True
     
     def deactivate(self):
         """Deactivate the share and delete the files on disk"""
@@ -55,7 +64,16 @@ class RequestModel(models.Model):
     size_limit = models.PositiveIntegerField(_("upload size limit"), default=None, null=True)
     store_path = models.CharField(_("storage directory"), max_length=4096, default=settings.BASE_STORAGE_PATH)
     upload_completed = models.BooleanField(_("upload completed"), default=False)
+    last_chunk_date = models.DateTimeField(_("date of last received chunk"), default=timezone.now)
     active = models.BooleanField(_("active"), default=True)  # can be deleted manually
+    
+    def is_active(self):
+            if not self.active:
+                return False
+            if self.expire_date is not None and timezone.now() > self.expire_date:
+                self.active = False  # update status if not done before by the job
+                return False
+            return True
     
     def deactivate(self):
             """Deactivate the request and delete the files on disk"""
@@ -70,8 +88,8 @@ class RequestModel(models.Model):
 class FileModel(models.Model):
     """Represents a file from a transfer (share/request) with its attributes and status"""
     class Meta:
-        verbose_name = _("file share model")
-        verbose_name_plural = ("file share models")
+        verbose_name = _("file model")
+        verbose_name_plural = ("file models")
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)  # use as filename for storage
     # either comes from a share or a request: only one with a value, the other should be None
@@ -82,7 +100,8 @@ class FileModel(models.Model):
     upload_completed = models.BooleanField(_("upload completed"), default=False)
     last_chunk_date = models.DateTimeField(_("date of last received chunk"), default=timezone.now)
     md5 = models.CharField(_("md5 hex hash"), max_length=32, default=None, null=True)
-    antivirus_status = models.TextField(_("antivirus status"), default=None, null=True)
+    antivirus_status = models.IntegerField(_("antivirus status"), default=0)  # 0 = not scanned, 1 = safe, 2 = attention required, 3 = infected
+    antivirus_detail = models.TextField(_("antivirus detail"), default=None, null=True)
     
     def filepath(self):
         """Returns the file path on disk"""
@@ -118,7 +137,11 @@ class FileModel(models.Model):
     
     def compute_md5(self):
         """Compute the file's md5 hash"""
-        self.md5  = md5_hash(self.filepath())
+        self.md5 = md5_hash(self.filepath())
+    
+    def perform_antivirus(self):
+        """Performs an antivirus scan if possible, and updates the antivirus status"""
+        self.antivirus_status, self.antivirus_detail = antivirus_scan(self.filepath())
     
     def __str__(self):
         return f"file-{self.id.hex}-[{self.filename}]"

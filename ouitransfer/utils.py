@@ -1,12 +1,19 @@
 from django.conf import settings
 from django.http import QueryDict
-from django.utils import timezone
+from django.utils import timezone, translation
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.contrib.staticfiles import finders
 
 import os
 import re
 import shutil
 import hashlib
+import clamd
+import socket
+import array
 import calendar
+from threading import Thread
 from datetime import datetime, timedelta
 from pathlib import Path
 import logging
@@ -14,9 +21,47 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def md5_hash(file_path:Path, block_size:int=2**25):
-    """Compute the MD5 hash by block for large files, defaults to 32MiB blocks"""
+class ClamdUnixSocketFdpass(clamd.ClamdUnixSocket):
+    """Allows to scan a file with clamav by passing the file descriptor (see clamd PR #19), enforces max size setting"""
+    def fdscan(self, path:str) -> tuple[str, str]:
+        try:
+            try:
+                self._init_socket()
+            except clamd.ConnectionError:
+                log.error("ClamAV socket unavailable")
+                return ("ERROR", "ClamAV socket unavailable.")
+            if not os.path.exists(path):
+                log.warning(f"Tried to perform antivirus scan on nonexistent path: {path}")
+                return ("ERROR", "No such file or directory.")
+            if os.path.getsize(path) > settings.ANTIVIRUS_MAX_SIZE:
+                return ("FOUND", "Heuristics.Limits.Exceeded.MaxFileSize")
+            try:
+                fd = os.open(path, os.O_RDONLY)
+                try:
+                    self.clamd_socket.sendall(b"zFILDES\0")
+                    self.clamd_socket.sendmsg(
+                        [b"\0"],
+                        [(socket.SOL_SOCKET, socket.SCM_RIGHTS,
+                        array.array("i", [fd]))]
+                    )
+                finally:
+                    os.close(fd)
+                result = self._recv_response().rstrip("\x00")
+            finally:
+                self._close_socket()
+            filename, detail, status = self._parse_response(result)
+            return (status, detail)
+        except Exception as e:
+            log.error(f"Unknown antivirus scan exception: {e}")
+            return ("ERROR", "Unknown error.")
+
+
+def md5_hash(file_path:Path, block_size:int=32*2**20):
+    """Compute the MD5 hash by block for large files, defaults to 32MiB blocks (doesn't change the result)"""
     log.debug(f"Computing MD5 for {file_path.as_posix}")
+    if not os.path.exists(file_path):
+        log.warning(f"File {file_path.as_posix} does not exist")
+        return None
     hasher = hashlib.md5()
     with open(file_path, "rb") as f:
         while True:
@@ -28,6 +73,57 @@ def md5_hash(file_path:Path, block_size:int=2**25):
     log.debug(f"Hash result: {result}")
     return result
 
+def antivirus_scan(file_path:Path) -> tuple[int, str]:
+    """Perform an antivirus scan on a file, and return a tuple with the status and the detail for use in a file model"""
+    log.debug(f"Performing antivirus scan for {file_path}")
+    clam = ClamdUnixSocketFdpass()
+    if type(file_path) == Path:
+        file_path = file_path.as_posix()
+    status, detail = clam.fdscan(file_path)
+    if status == "ERROR":
+        log.error(f"Error when scanning file {file_path}: {detail}")
+        return (2, "Error during scan.")
+    elif status == "FOUND":
+        if detail == "Heuristics.Limits.Exceeded.MaxFileSize":
+            return (2, "Too large to scan.")
+        else:
+            return (3, detail)
+    elif status == "OK":
+        return (1, "File safe.")
+    else:
+        log.error(f"Unknown antivirus status for {file_path}: ({status}, {detail})")
+        return (2, "Unknown scan result")
+
+
+def send_email(address:str, template:str, subject:str, context:dict={}, lang:str="en", sender:str=settings.DEFAULT_FROM_EMAIL):
+    """
+    Send an email using a thread by providing the templates directory
+    The template directory is under the emails directory, and contains template.txt and template.html
+    """
+    def send_email_thread():
+        text_content = render_to_string(f"ouitransfer/emails/{template}/template.txt", context=context)
+        html_content = render_to_string(f"ouitransfer/emails/{template}/template.html", context=context)
+        css_path = finders.find("ouitransfer/css/emails.css")
+        if css_path:
+            with open(css_path, "r", encoding="utf-8") as css_file:
+                css = css_file.read()
+            html_content = f"\n<style>\n{css}\n</style>\n" + html_content
+        email = EmailMultiAlternatives(subject, text_content, sender, address)
+        if html_content is not None:
+            email.attach_alternative(html_content, "text/html")
+        email.send()
+
+    context.update({
+        "title": subject,
+        "base_url": f"{'https' if getattr(settings, 'SECURE_SSL_REDIRECT', False) else 'http'}://{settings.WEB_DOMAIN}",
+        "CONTACT_EMAIL": settings.CONTACT_EMAIL,
+        "GITHUB_REPO": settings.GITHUB_REPO,
+    })
+    with translation.override(lang):
+        email_thread = Thread(target=send_email_thread)
+        email_thread.daemon = True
+        email_thread.start()
+    
 
 def enough_space(dir:Path, file_size:int):
     """Check if there's enough space in the directory to store file, accounting for safe space"""

@@ -54,6 +54,10 @@ STORAGE_SAFE_SPACE = 2 * 2**30  # Consider storage full if less than this space 
 UPLOAD_CHUNK_SIZE = 5 * 2**20  # Size of each chunk to upload
 UPLOAD_TIMEOUT = 10 * 60  # How many seconds after last chunk received to consider an upload/share to be cancelled
 
+USE_ANTIVIRUS = True  # Scan uploaded files witch clamav
+ANTIVIRUS_MAX_SIZE = 1 * 2**30  # Size limit to perform antivirus scan
+# antivirus notes: use --fdpass for read access, enable AlertExceedsMax in config, change MaxFileSize and MaxScanSize in config
+
 # Email configuration
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

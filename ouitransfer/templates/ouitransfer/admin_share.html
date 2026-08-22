@@ -42,9 +42,9 @@
             <input type="checkbox" name="expire" id="expire">
             <label for="expire">{%trans "Delete in:"%}</label>
             <span class="number-input" id="delay-span">
-                <button type="button" target="delay" decr>–</button>
+                <button type="button" data-target="delay" decr>–</button>
                 <input type="number" name="delay" id="delay" min="1" step="1" value="7">
-                <button type="button" target="delay" incr>+</button>
+                <button type="button" data-target="delay" incr>+</button>
                 <select name="delay-unit" id="delay-unit">
                     <option value="minutes">{%trans "minute(s)"%}</option>
                     <option value="hours">{%trans "hour(s)"%}</option>
@@ -58,7 +58,7 @@
             <button type="button" id="reset-path" title="{%trans 'reset path'%}">
                 <img class="inv" src="{%static 'ouitransfer/assets/reset.svg' %}" alt="{%trans 'reset path'%}">
             </button>
-            <label for="">{%trans "Store in:"%}</label>
+            <label>{%trans "Store in:"%}</label>
             <div id="path-selector" data-next-dirs-url="{%url '_next_dirs'%}" data-default-dir-breakdown-url="{%url '_default_dir_breakdown'%}">
                 <select id="root-path" class="path-elem" name="path-0" index="0">
                     {%for path in ALLOWED_ROOTS%}
@@ -83,7 +83,7 @@
                 <span id="selected-count">{%trans "No files selected"%}</span>
                 <br><small>{%trans "Available space:"%} <span id="available-space">{{pretty_upload_space}}</span></small> | <small>{%trans "Selection size:"%} <span id="selection-size">0B</span></small>
                 <span id="max-bytes" style="display:none">{{bytes_upload_space}}</span>
-            </div id="upload-content">
+            </div>
             <ul id="file-list"></ul>
             <div id="progress-wrap" style="display:none">
                 <progress id="upload-progress" max=100 value=0></progress>

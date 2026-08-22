@@ -10,6 +10,7 @@ from .utils import is_path_legal, list_subdirs, path_breakdown, aliased_to_abs_p
 from .models import ShareModel, RequestModel, FileModel
 
 import os
+from threading import Thread
 from pathlib import Path
 import logging
 
@@ -156,7 +157,7 @@ def upload_chunk_share(request:HttpRequest):
         return JsonResponse({"ok": False, "error": "invalid_index"})
     print(f"upload_chunk_share -> file_id: {file_id} | chunk_index: {chunk_index}")  #NOTE: remove temp print
     try:
-        FileObject =  FileModel.objects.get(id=file_id)
+        FileObject = FileModel.objects.get(id=file_id)
     except FileModel.DoesNotExist:
         return JsonResponse({"ok": False, "error": "nonexistant_file"})
     if chunk.size > settings.UPLOAD_CHUNK_SIZE:
@@ -166,21 +167,24 @@ def upload_chunk_share(request:HttpRequest):
         log.warning(f"Tried to upload overflow chunk. Headers: {request.headers}")
         return JsonResponse({"ok": False, "error": "write_overflow"})
     chunk_bytes = chunk.read()
-    file = os.open(str(FileObject.filepath()), os.O_WRONLY)
+    file = os.open(FileObject.filepath().as_posix(), os.O_WRONLY)
     try:
-        os.pwrite(file, chunk_bytes, offset)
+        written = os.pwrite(file, chunk_bytes, offset)
     except Exception as e:
         log.error(f"Error writing chunk to file {FileObject.id.hex}: {e}")
         return JsonResponse({"ok": False, "error": "write_error"})
     finally:
         os.close(file)
+    if written < chunk.size:
+        log.error(f"Error writing chunk to file {FileObject.id.hex}: did not write every byte")
+        return JsonResponse({"ok": False, "error": "write_error"})
     FileObject.last_chunk_date = timezone.now()
     FileObject.save()
     return JsonResponse({"ok": True})
 
 
 def finish_file_share(request:HttpRequest):
-    """Finalize file creation and start file verification (hashing and antivirus)"""
+    """Finalize file creation"""
     if not request.user.is_staff:
         log.warning(f"Tried illegal share file finish. Headers: {request.headers}")
         raise PermissionDenied()
@@ -189,10 +193,15 @@ def finish_file_share(request:HttpRequest):
         return HttpResponseNotAllowed(["POST"])
     file_id = request.POST.get("file_id")
     print(f"finish_file_share -> file_id: {file_id}")  #NOTE: remove temp print
-    # TODO: fetch the FileModel by file_id
-    # TODO: concatenate the temp chunk parts, in index order, into file.filepath()
-    # TODO: verify assembled size == file.file_size; compute and store file.md5
-    # TODO: set file.upload_completed = True, save; delete the temp chunk dir
+    try:
+        FileObject = FileModel.objects.get(id=file_id)
+    except FileModel.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "nonexistant_file"})
+    FileObject.upload_completed = True
+    FileObject.save()
+    md5_thread = Thread(target=FileObject.compute_md5())
+    md5_thread.daemon = True
+    md5_thread.start()
     return JsonResponse({"ok": True})
 
 
@@ -206,8 +215,15 @@ def finish_share(request:HttpRequest):
         return HttpResponseNotAllowed(["POST"])
     share_id = request.POST.get("share_id")
     print(f"finish_share -> share_id: {share_id}")  #NOTE: remove temp print
-    # TODO: fetch the ShareModel, verify all related FileModel rows have upload_completed=True
-    # TODO: send the notification email if send-email was checked
+    try:
+        ShareObject = ShareModel.objects.get(id=share_id)
+    except ShareModel.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "nonexistant_share"})
+    ShareObject.creation_date = timezone.now()
+    ShareObject.upload_completed = True
+    ShareObject.save()
+    if ShareObject.email is not None:
+        pass  #TODO: send email
     return JsonResponse({"ok": True})
 
 

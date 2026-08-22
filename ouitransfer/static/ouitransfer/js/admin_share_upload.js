@@ -246,7 +246,7 @@ function makeProgressTracker(totalBytes) {
 }
 
 
-async function uploadFileChunks(shareId, fileId, file, progressTracker) {
+async function uploadFileChunks(fileId, file, progressTracker) {
     // upload every chunk of one file in parallel
     const totalChunks = Math.ceil(file.size / uploadChunkSize);
     const chunkBytes = new Array(totalChunks).fill(0);
@@ -268,11 +268,10 @@ async function uploadFileChunks(shareId, fileId, file, progressTracker) {
             const end = Math.min(start + uploadChunkSize, file.size);
             const blob = file.slice(start, end);
 
-            await uploadChunkWithRetry(
+            const result = await uploadChunkWithRetry(
                 urls.uploadChunk,
                 () => {
                     const fd = new FormData();
-                    fd.append("share_id", shareId);
                     fd.append("file_id", fileId);
                     fd.append("chunk_index", index);
                     fd.append("chunk", blob);
@@ -280,11 +279,8 @@ async function uploadFileChunks(shareId, fileId, file, progressTracker) {
                 },
                 (loaded) => reportChunkProgress(index, loaded)
             );
-            if (result.status < 200 || result.status >= 300) {
-                throw new Error(`HTTP ${result.status}`);  // http error
-            }
             if (!result.ok) {  // failed chunk upload or write
-                switch (shareData.error) {
+                switch (result.error) {
                     case "missing_args":
                         throw new Error(gettext("Missing arguments while uploading chunk"));
                     case "invalid_index":
@@ -314,9 +310,6 @@ async function runUpload() {
     const shareFd = new FormData(form);
     const shareData = await postForm(urls.startShare, shareFd);
     disableUi(true);  // now disable ui while uploading
-    if (shareData.status < 200 || shareData.status >= 300) {
-        throw new Error(`HTTP ${shareData.status}`);  // http error
-    }
     if (!shareData.ok) {  // failed form validation
         switch (shareData.error) {
             case "invalid_email":
@@ -345,9 +338,6 @@ async function runUpload() {
         startFd.append("filename", item.file.name);
         startFd.append("file_size", item.file.size);
         const fileData = await postForm(urls.startFile, startFd);
-        if (fileData.status < 200 || fileData.status >= 300) {  // http error
-            throw new Error(`HTTP ${fileData.status}`);
-        }
         if (!fileData.ok) {  // failed file init
             switch (fileData.error) {
                 case "missing_args":
@@ -369,26 +359,41 @@ async function runUpload() {
         const fileId = fileData.file_id;
         
         // upload file chunk by chunk
-        await uploadFileChunks(shareId, fileId, item.file, progressTracker);
+        await uploadFileChunks(fileId, item.file, progressTracker);
 
         // finish file upload
         const finishFileFd = new FormData();
-        finishFileFd.append("share_id", shareId);
         finishFileFd.append("file_id", fileId);
-        await postForm(urls.finishFile, finishFileFd);
+        const result = await postForm(urls.finishFile, finishFileFd);
+        if (!result.ok) {  // failed file upload finalization
+            switch (result.error) {
+                case "nonexistent_file":
+                    throw new Error(gettext("The file for this finalization does not exist"));
+                default:
+                    throw new Error(gettext("Unknown file finalization error"));
+            }
+        }
     }
 
     // finish full submission
     const finishShareFd = new FormData();
     finishShareFd.append("share_id", shareId);
-    await postForm(urls.finishShare, finishShareFd);
+    const res = await postForm(urls.finishShare, finishShareFd);
+    if (!res.ok) {  // failed file init
+        switch (res.error) {
+            case "nonexistant_share":
+                throw new Error(gettext("The share object does not exist"));
+            default:
+                throw new Error(gettext("Unknown upload finalization error"));
+        }
+    }
 }
 
 function disableUi(disable) {
     // disable or enable ui form
     submitBtn.disabled = disable;
     addBtn.disabled = disable;
-    document.querySelectorAll('button[class="remove-btn"]').forEach((btn) => {
+    document.querySelectorAll(".remove-btn").forEach((btn) => {
         btn.disabled = disable;
     });
     document.getElementById("public").disabled = disable;
@@ -399,11 +404,11 @@ function disableUi(disable) {
     document.getElementById("expire").disabled = disable;
     document.getElementById("delay").disabled = disable;
     document.getElementById("delay-unit").disabled = disable;
-    document.querySelectorAll('button[target="delay"]').forEach((btn) => {
+    document.querySelectorAll('button[data-target="delay"]').forEach((btn) => {
         btn.disabled = disable;
     });
     document.getElementById("reset-path").disabled = disable;
-    document.querySelectorAll('select[class="path-elem"]').forEach((sel) => {
+    document.querySelectorAll(".path-elem").forEach((sel) => {
         sel.disabled = disable;
     });
     if (!disable) {
@@ -415,7 +420,7 @@ function disableUi(disable) {
         if (!document.getElementById("expire").checked) {
             document.getElementById("delay").disabled = true;
             document.getElementById("delay-unit").disabled = true;
-            document.querySelectorAll('button[target="delay"]').forEach((btn) => {
+            document.querySelectorAll('button[data-target="delay"]').forEach((btn) => {
                 btn.disabled = true;
             });
         }
