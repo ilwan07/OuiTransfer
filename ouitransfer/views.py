@@ -6,7 +6,7 @@ from django.utils import timezone
 from django.shortcuts import render, redirect
 from django.templatetags.static import static
 
-from .utils import is_path_legal, list_subdirs, path_breakdown, aliased_to_abs_path, space_left, pretty_space, validate_share_form, get_posint
+from .utils import is_path_legal, list_subdirs, path_breakdown, aliased_to_abs_path, space_left, pretty_space, validate_share_form, get_posint, send_email
 from .models import ShareModel, RequestModel, FileModel
 
 import os
@@ -89,13 +89,13 @@ def start_share(request:HttpRequest):
         return JsonResponse({"ok": False, "error": status})
     ShareObject = ShareModel(public=frm["public"], email=frm["email_address"], email_lang=frm["email_lang"],
                              message=frm["message"], expire_date=frm["expire_date"])
-    ShareObject.store_path = str(Path(frm["store_path"]) / ShareObject.id.hex)
+    ShareObject.store_path = str(Path(frm["store_path"]) / str(ShareObject.id))
     ShareObject.save()
     # create folder and info file
-    share_dir = Path(frm["store_path"]) / ShareObject.id.hex
+    share_dir = Path(frm["store_path"]) / str(ShareObject.id)
     os.mkdir(share_dir)
-    open(share_dir/f".ouitransfer_dir_{ShareObject.id.hex}", "w").close()
-    return JsonResponse({"ok": True, "share_id": ShareObject.id.hex})
+    open(share_dir/f".ouitransfer_dir_{ShareObject.id}", "w").close()
+    return JsonResponse({"ok": True, "share_id": str(ShareObject.id)})
 
 
 def start_file_share(request:HttpRequest):
@@ -132,11 +132,13 @@ def start_file_share(request:HttpRequest):
     FileObject.save()
     # preallocate file on disk
     try:
-        os.truncate(str(FileObject.filepath()), FileObject.file_size)
+        path = str(FileObject.filepath())
+        open(path, "w").close()
+        os.truncate(path, FileObject.file_size)
     except Exception as e:
-        log.error(f"Error allocating file {FileObject.id.hex}: {e}")
+        log.error(f"Error allocating file {FileObject.id}: {e}")
         return JsonResponse({"ok": False, "error": "allocation_error"})
-    return JsonResponse({"ok": True, "file_id": FileObject.id.hex})
+    return JsonResponse({"ok": True, "file_id": str(FileObject.id)})
 
 
 def upload_chunk_share(request:HttpRequest):
@@ -160,6 +162,9 @@ def upload_chunk_share(request:HttpRequest):
         FileObject = FileModel.objects.get(id=file_id)
     except FileModel.DoesNotExist:
         return JsonResponse({"ok": False, "error": "nonexistant_file"})
+    ShareObject = FileObject.share
+    if ShareObject is None:
+        return JsonResponse({"ok": False, "error": "not_share_file"})
     if chunk.size > settings.UPLOAD_CHUNK_SIZE:
         return JsonResponse({"ok": False, "error": "chunk_too_large"})
     offset = chunk_index * settings.UPLOAD_CHUNK_SIZE
@@ -171,15 +176,15 @@ def upload_chunk_share(request:HttpRequest):
     try:
         written = os.pwrite(file, chunk_bytes, offset)
     except Exception as e:
-        log.error(f"Error writing chunk to file {FileObject.id.hex}: {e}")
+        log.error(f"Error writing chunk to file {FileObject.id}: {e}")
         return JsonResponse({"ok": False, "error": "write_error"})
     finally:
         os.close(file)
     if written < chunk.size:
-        log.error(f"Error writing chunk to file {FileObject.id.hex}: did not write every byte")
+        log.error(f"Error writing chunk to file {FileObject.id}: did not write every byte")
         return JsonResponse({"ok": False, "error": "write_error"})
-    FileObject.last_chunk_date = timezone.now()
-    FileObject.save()
+    ShareObject.last_chunk_date = timezone.now()
+    ShareObject.save()
     return JsonResponse({"ok": True})
 
 
@@ -223,7 +228,7 @@ def finish_share(request:HttpRequest):
     ShareObject.upload_completed = True
     ShareObject.save()
     if ShareObject.email is not None:
-        pass  #TODO: send email
+        send_email(ShareObject.email, "send_share", lang=ShareObject.email_lang, context={"share_id": str(ShareObject.id)})
     return JsonResponse({"ok": True})
 
 

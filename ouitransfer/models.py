@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from django.dispatch import receiver
+from django.db.models.signals import pre_delete
 from django.utils.translation import gettext_lazy as _
 
 from .utils import md5_hash, antivirus_scan
@@ -41,12 +43,17 @@ class ShareModel(models.Model):
     
     def deactivate(self):
         """Deactivate the share and delete the files on disk"""
-        log.info(f"Deactivating share {self.id.hex}")
+        log.info(f"Deactivating share {self.id}")
         self.active = False
-        shutil.rmtree(self.store_path)
+        if os.path.exists(self.store_path):
+            try:
+                shutil.rmtree(self.store_path)
+                log.info(f"Deleted directory for share {self.id}")
+            except Exception as e:
+                log.warning(f"Couldn't delete share directory {self.id}: {e}")
     
     def __str__(self):
-        return f"share-{self.id.hex}"
+        return f"share-[{self.id}]"
 
 
 class RequestModel(models.Model):
@@ -68,21 +75,26 @@ class RequestModel(models.Model):
     active = models.BooleanField(_("active"), default=True)  # can be deleted manually
     
     def is_active(self):
-            if not self.active:
-                return False
-            if self.expire_date is not None and timezone.now() > self.expire_date:
-                self.active = False  # update status if not done before by the job
-                return False
-            return True
+        if not self.active:
+            return False
+        if self.expire_date is not None and timezone.now() > self.expire_date:
+            self.active = False  # update status if not done before by the job
+            return False
+        return True
     
     def deactivate(self):
-            """Deactivate the request and delete the files on disk"""
-            log.info(f"Deactivating request {self.id.hex}")
-            self.active = False
-            shutil.rmtree(self.store_path)
+        """Deactivate the request and delete the files on disk"""
+        log.info(f"Deactivating request {self.id}")
+        self.active = False
+        if os.path.exists(self.store_path):
+            try:
+                shutil.rmtree(self.store_path)
+                log.info(f"Deleted directory for request {self.id}")
+            except Exception as e:
+                log.warning(f"Couldn't delete request directory {self.id}: {e}")
     
     def __str__(self):
-        return f"request-{self.id.hex}"
+        return f"request-[{self.id}]"
 
 
 class FileModel(models.Model):
@@ -98,7 +110,6 @@ class FileModel(models.Model):
     filename = models.CharField(_("original filename"), max_length=255)  # original filename, not for storage to avoid issues
     file_size = models.PositiveIntegerField(_("file size"), default=None, null=True)
     upload_completed = models.BooleanField(_("upload completed"), default=False)
-    last_chunk_date = models.DateTimeField(_("date of last received chunk"), default=timezone.now)
     md5 = models.CharField(_("md5 hex hash"), max_length=32, default=None, null=True)
     antivirus_status = models.IntegerField(_("antivirus status"), default=0)  # 0 = not scanned, 1 = safe, 2 = attention required, 3 = infected
     antivirus_detail = models.TextField(_("antivirus detail"), default=None, null=True)
@@ -110,9 +121,9 @@ class FileModel(models.Model):
         elif self.request is not None:
             storage_dir = self.request.store_path
         else:
-            log.error(f"File {self.id.hex} doesn't have an attached share or request")
+            log.error(f"File {self.id} doesn't have an attached share or request")
             return None
-        return Path(storage_dir) / (self.id.hex + self.ext())
+        return Path(storage_dir) / (str(self.id) + self.ext())
     
     def ext(self):
         """Get the file extension, including the dot"""
@@ -144,4 +155,24 @@ class FileModel(models.Model):
         self.antivirus_status, self.antivirus_detail = antivirus_scan(self.filepath())
     
     def __str__(self):
-        return f"file-{self.id.hex}-[{self.filename}]"
+        return f"file-{self.filename}-[{self.id}]"
+
+
+@receiver(pre_delete, sender=FileModel)
+def delete_filemodel_hook(sender, instance:FileModel, using, **kwargs):
+    if instance.on_disk():
+        try:
+            os.remove(instance.filepath())
+            log.info(f"Deleted physical file for {instance.id}")
+        except Exception as e:
+            log.warning(f"Couldn't delete physical file {instance.id}: {e}")
+
+@receiver(pre_delete, sender=ShareModel)
+def delete_sharemodel_hook(sender, instance:ShareModel, using, **kwargs):
+    instance.deactivate()
+    log.info(f"Deleted share object {instance.id}")
+
+@receiver(pre_delete, sender=RequestModel)
+def delete_requestmodel_hook(sender, instance:RequestModel, using, **kwargs):
+    instance.deactivate()
+    log.info(f"Deleted request object {instance.id}")

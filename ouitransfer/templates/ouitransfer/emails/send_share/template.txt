@@ -1,0 +1,1 @@
+PLACEHOLDER EMAIL: you received a transfer with id {{share_id}}!

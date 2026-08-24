@@ -10,3 +10,4 @@ admin.site.unregister(Group)
 # Register models
 admin.site.register(ShareModel)
 admin.site.register(RequestModel)
+admin.site.register(FileModel)

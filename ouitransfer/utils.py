@@ -4,6 +4,7 @@ from django.utils import timezone, translation
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.contrib.staticfiles import finders
+from django.utils.translation import gettext as _
 
 import os
 import re
@@ -95,35 +96,49 @@ def antivirus_scan(file_path:Path) -> tuple[int, str]:
         return (2, "Unknown scan result")
 
 
-def send_email(address:str, template:str, subject:str, context:dict={}, lang:str="en", sender:str=settings.DEFAULT_FROM_EMAIL):
+def send_email(address:str, template:str, lang:str="en", context:dict={}, sender:str=settings.DEFAULT_FROM_EMAIL):
     """
     Send an email using a thread by providing the templates directory
     The template directory is under the emails directory, and contains template.txt and template.html
     """
-    def send_email_thread():
-        text_content = render_to_string(f"ouitransfer/emails/{template}/template.txt", context=context)
-        html_content = render_to_string(f"ouitransfer/emails/{template}/template.html", context=context)
-        css_path = finders.find("ouitransfer/css/emails.css")
-        if css_path:
-            with open(css_path, "r", encoding="utf-8") as css_file:
-                css = css_file.read()
-            html_content = f"\n<style>\n{css}\n</style>\n" + html_content
-        email = EmailMultiAlternatives(subject, text_content, sender, address)
-        if html_content is not None:
-            email.attach_alternative(html_content, "text/html")
-        email.send()
-
-    context.update({
-        "title": subject,
-        "base_url": f"{'https' if getattr(settings, 'SECURE_SSL_REDIRECT', False) else 'http'}://{settings.WEB_DOMAIN}",
-        "CONTACT_EMAIL": settings.CONTACT_EMAIL,
-        "GITHUB_REPO": settings.GITHUB_REPO,
-    })
     with translation.override(lang):
+        subject = get_email_subject(template, lang)
+        def send_email_thread():
+            try:
+                text_content = render_to_string(f"ouitransfer/emails/{template}/template.txt", context=context)
+                html_content = render_to_string(f"ouitransfer/emails/{template}/template.html", context=context)
+                css_path = finders.find("ouitransfer/css/emails.css")
+                if css_path:
+                    with open(css_path, "r", encoding="utf-8") as css_file:
+                        css = css_file.read()
+                    html_content = f"\n<style>\n{css}\n</style>\n" + html_content
+                email = EmailMultiAlternatives(_(subject), text_content, sender, [address])
+                if html_content is not None:
+                    email.attach_alternative(html_content, "text/html")
+                email.send()
+                log.info(f"Sent email with template {template} to {address}")
+            except Exception as e:
+                log.error(f'Failure while sending email with subject "{subject}" to {address} with template {template}: {e}')
+
+        context.update({
+            "title": subject,
+            "base_url": f"{'https' if getattr(settings, 'SECURE_SSL_REDIRECT', False) else 'http'}://{settings.WEB_DOMAIN}",
+            "CONTACT_EMAIL": settings.CONTACT_EMAIL,
+            "GITHUB_REPO": settings.GITHUB_REPO,
+        })
         email_thread = Thread(target=send_email_thread)
         email_thread.daemon = True
         email_thread.start()
-    
+
+
+def get_email_subject(template, lang):
+    """Return the translated email subject associated with a template"""
+    with translation.override(lang):
+        associations = {
+            "send_share": _(f"{settings.OWNER} sent you files!")
+        }
+        return associations.get(template)
+
 
 def enough_space(dir:Path, file_size:int):
     """Check if there's enough space in the directory to store file, accounting for safe space"""

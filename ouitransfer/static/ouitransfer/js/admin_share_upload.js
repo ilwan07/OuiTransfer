@@ -287,6 +287,8 @@ async function uploadFileChunks(fileId, file, progressTracker) {
                         throw new Error(gettext("Invalid chunk index"));
                     case "nonexistent_file":
                         throw new Error(gettext("The file for this chunk does not exist"));
+                    case "not_share_file":
+                        throw new Error(gettext("This file is not associated with a share"));
                     case "chunk_too_large":
                         throw new Error(gettext("The uploaded chunk is too large"));
                     case "write_overflow":
