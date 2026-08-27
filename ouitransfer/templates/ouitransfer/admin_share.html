@@ -1,18 +1,15 @@
 {%load static%}
 {%load i18n%}
+
 {%trans "Share" as subtitle%}
+{%trans "Create a file share" as header_title%}
 
 <!DOCTYPE html>
 <html>
 {%include "ouitransfer/sub/head.html"%}
 
 <body>
-<header class="with-nav">
-    <a href="{%url 'index'%}" class="nav" alt="{%trans 'home page'%}">
-        <img class="inv nav" src="{%static 'ouitransfer/assets/home.svg' %}">
-    </a>
-    <h2>{%trans "Create a file share"%}</h2>
-</header>
+{% include "ouitransfer/sub/nav_header.html" %}
 
 <main>
     <form id="share-form" method="post" action="{%url 'share'%}">
@@ -85,14 +82,15 @@
                 <span id="max-bytes" style="display:none">{{bytes_upload_space}}</span>
             </div>
             <ul id="file-list"></ul>
-            <div id="progress-wrap" style="display:none">
-                <progress id="upload-progress" max=100 value=0></progress>
-                <p id="progress-text">0B / 0B</p>
-            </div>
             <span id="upload-chunk-size" style="display:none">{{upload_chunk_size}}</span>
         </div>
 
         <div class="line"></div>
+
+        <div id="progress-wrap" style="display:none">
+            <progress id="upload-progress" max=100 value=0></progress>
+            <p id="progress-text">0B / 0B</p>
+        </div>
     </div>
     <input type="submit" id="submit-btn" value="{%trans 'Create file share'%}">
     </form>

@@ -82,7 +82,6 @@ def start_share(request:HttpRequest):
     if request.method != "POST":
         log.warning(f"Invalid request method for share start: {request.method}")
         return HttpResponseNotAllowed(["POST"])
-    print(f"start_share -> POST:{request.POST}")  #NOTE: remove temp print
     # validate form and path
     status, frm = validate_share_form(request.POST)
     if not status == "ok":
@@ -120,7 +119,6 @@ def start_file_share(request:HttpRequest):
     file_size = get_posint(file_size)
     if file_size is None:
         return JsonResponse({"ok": False, "error": "invalid_size"})
-    print(f"start_file_share -> share_id: {share_id} | filename: {filename} | file_size: {file_size}")  #NOTE: remove temp print
     try:
         ShareObject = ShareModel.objects.get(id=share_id)
     except ShareModel.DoesNotExist:
@@ -157,7 +155,6 @@ def upload_chunk_share(request:HttpRequest):
     chunk_index = get_posint(chunk_index)
     if chunk_index is None:
         return JsonResponse({"ok": False, "error": "invalid_index"})
-    print(f"upload_chunk_share -> file_id: {file_id} | chunk_index: {chunk_index}")  #NOTE: remove temp print
     try:
         FileObject = FileModel.objects.get(id=file_id)
     except FileModel.DoesNotExist:
@@ -197,16 +194,19 @@ def finish_file_share(request:HttpRequest):
         log.warning(f"Invalid request method for share file finish: {request.method}")
         return HttpResponseNotAllowed(["POST"])
     file_id = request.POST.get("file_id")
-    print(f"finish_file_share -> file_id: {file_id}")  #NOTE: remove temp print
     try:
         FileObject = FileModel.objects.get(id=file_id)
     except FileModel.DoesNotExist:
         return JsonResponse({"ok": False, "error": "nonexistant_file"})
     FileObject.upload_completed = True
     FileObject.save()
-    md5_thread = Thread(target=FileObject.compute_md5())
+    
+    def md5_thread_func():
+        FileObject.compute_md5()
+        FileObject.save()
+    md5_thread = Thread(target=md5_thread_func)
     md5_thread.daemon = True
-    md5_thread.start()
+    md5_thread.start()  # compute hash in the background, no queue
     return JsonResponse({"ok": True})
 
 
@@ -219,7 +219,6 @@ def finish_share(request:HttpRequest):
         log.warning(f"Invalid request method for share finish: {request.method}")
         return HttpResponseNotAllowed(["POST"])
     share_id = request.POST.get("share_id")
-    print(f"finish_share -> share_id: {share_id}")  #NOTE: remove temp print
     try:
         ShareObject = ShareModel.objects.get(id=share_id)
     except ShareModel.DoesNotExist:

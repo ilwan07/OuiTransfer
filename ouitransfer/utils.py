@@ -59,9 +59,9 @@ class ClamdUnixSocketFdpass(clamd.ClamdUnixSocket):
 
 def md5_hash(file_path:Path, block_size:int=32*2**20):
     """Compute the MD5 hash by block for large files, defaults to 32MiB blocks (doesn't change the result)"""
-    log.debug(f"Computing MD5 for {file_path.as_posix}")
+    log.debug(f"Computing MD5 for {file_path.as_posix()}")
     if not os.path.exists(file_path):
-        log.warning(f"File {file_path.as_posix} does not exist")
+        log.warning(f"File {file_path.as_posix()} does not exist")
         return None
     hasher = hashlib.md5()
     with open(file_path, "rb") as f:
@@ -71,7 +71,7 @@ def md5_hash(file_path:Path, block_size:int=32*2**20):
                 break
             hasher.update(block)
     result = hasher.hexdigest()
-    log.debug(f"Hash result: {result}")
+    log.debug(f"Hash result for {file_path.as_posix()}: {result}")
     return result
 
 def antivirus_scan(file_path:Path) -> tuple[int, str]:

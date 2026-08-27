@@ -394,6 +394,7 @@ async function runUpload() {
 function disableUi(disable) {
     // disable or enable ui form
     submitBtn.disabled = disable;
+    submitBtn.style.display = disable ? "none" : "";
     addBtn.disabled = disable;
     document.querySelectorAll(".remove-btn").forEach((btn) => {
         btn.disabled = disable;
