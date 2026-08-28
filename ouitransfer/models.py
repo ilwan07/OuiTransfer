@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from django.urls import reverse
 from django.dispatch import receiver
 from django.db.models.signals import pre_delete
 from django.utils.translation import gettext_lazy as _
@@ -52,6 +53,12 @@ class ShareModel(models.Model):
             except Exception as e:
                 log.warning(f"Couldn't delete share directory {self.id}: {e}")
     
+    def url(self):
+        path = reverse("transfer", args=[self.id])
+        domain = settings.WEB_DOMAIN
+        scheme = "https" if getattr(settings, "SECURE_SSL_REDIRECT", False) else "http"
+        return f"{scheme}://{domain}{path}"
+    
     def __str__(self):
         return f"share-[{self.id}]"
 
@@ -92,6 +99,12 @@ class RequestModel(models.Model):
                 log.info(f"Deleted directory for request {self.id}")
             except Exception as e:
                 log.warning(f"Couldn't delete request directory {self.id}: {e}")
+    
+    def url(self):
+            path = reverse("transfer", args=[self.id])
+            domain = settings.WEB_DOMAIN
+            scheme = "https" if getattr(settings, "SECURE_SSL_REDIRECT", False) else "http"
+            return f"{scheme}://{domain}{path}"
     
     def __str__(self):
         return f"request-[{self.id}]"

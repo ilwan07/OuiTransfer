@@ -15,4 +15,5 @@ urlpatterns = [
     path("share/_upload_chunk/", views.upload_chunk_share, name="_upload_chunk_share"),
     path("share/_finish_file/", views.finish_file_share, name="_finish_file_share"),
     path("share/_finish/", views.finish_share, name="_finish_share"),
+    path("transfer/<str:transfer_id>/", views.transfer, name="transfer"),
 ]

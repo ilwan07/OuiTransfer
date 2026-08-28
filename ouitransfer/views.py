@@ -5,8 +5,9 @@ from django.contrib.auth import logout
 from django.utils import timezone
 from django.shortcuts import render, redirect
 from django.templatetags.static import static
+from django.utils.translation import gettext as _
 
-from .utils import is_path_legal, list_subdirs, path_breakdown, aliased_to_abs_path, space_left, pretty_space, validate_share_form, get_posint, send_email
+from .utils import is_path_legal, list_subdirs, path_breakdown, aliased_to_abs_path, space_left, pretty_space, validate_share_form, get_posint, send_email, transfer_id_to_url
 from .models import ShareModel, RequestModel, FileModel
 
 import os
@@ -35,9 +36,18 @@ def favicon(request:HttpRequest):
 
 def index(request:HttpRequest):
     """Index page"""
+    success_options = {
+        "share_cre": _("File share created successfully! Click the share link below to copy it to your clipboard:"),
+        "request_cre": _("File request created successfully! Click the request link below to copy it to your clipboard:"),
+        "request_ans": _("Files submitted successfully!"),
+    }
+    success = success_options.get(request.GET.get("success"))
+    transfer_id = request.GET.get("transfer_id")
+    transfer_url = transfer_id_to_url(transfer_id)
+    
     if request.user.is_staff:
-        log.info("Serving admin index")
-        return render(request, "ouitransfer/admin_index.html")
+        log.info(f"Serving admin index to {request.user.username}")
+        return render(request, "ouitransfer/admin_index.html", {"success": success, "transfer_url": transfer_url})
     else:
         log.info("Serving user index")
         return render(request, "ouitransfer/index.html")
@@ -229,6 +239,12 @@ def finish_share(request:HttpRequest):
     if ShareObject.email is not None:
         send_email(ShareObject.email, "send_share", lang=ShareObject.email_lang, context={"share_id": str(ShareObject.id)})
     return JsonResponse({"ok": True})
+
+
+def transfer(request:HttpRequest, transfer_id:str):
+    """Shows the page associated with a transfer (share or request)"""
+    #TODO
+    return HttpResponse(f"TODO: transfer {transfer_id}")
 
 
 def next_dirs(request:HttpRequest):

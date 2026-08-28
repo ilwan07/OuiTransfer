@@ -15,6 +15,16 @@
 </header>
 
 <main>
+    {% if success %}
+    <div id="success-div">
+        <p id="success-message"><i><b>{{success}}</b></i></p>
+        {% if transfer_url %}
+            <button onclick="copy_link()" class="urlbutton" id="copy-link"><i><u>{{transfer_url}}</u></i></button>
+            <p id="copy-confirmation"></p>
+            <script src="{% static 'ouitransfer/js/index_copy.js' %}"></script>
+        {% endif %}
+    </div>
+    {% endif %}
     <div class="buttonlinks">
         <a href="{%url 'share'%}"><b>{%trans "Share files"%}</b></a>
         <!--TODO request--><a href="{%url 'index'%}"><b>{%trans "Request files"%}</b></a>

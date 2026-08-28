@@ -22,6 +22,7 @@ const urls = {
     uploadChunk: uploadContainer.dataset.uploadChunkUrl,
     finishFile: uploadContainer.dataset.finishFileUrl,
     finishShare: uploadContainer.dataset.finishShareUrl,
+    endDest: uploadContainer.dataset.endDestUrl,
 };
 
 const MAX_PARALLEL_CHUNKS = 4;  // number of chunks from a file to upload in parallel
@@ -307,7 +308,7 @@ async function uploadFileChunks(fileId, file, progressTracker) {
 }
 
 async function runUpload() {
-    // full upload sequence: start share -> per file (start -> chunks -> finish) -> finish share
+    // full upload sequence: start share -> per file (start -> chunks -> finish) -> finish share, returns the transfer id
     // submit form metadata first for initial validation
     const shareFd = new FormData(form);
     const shareData = await postForm(urls.startShare, shareFd);
@@ -389,6 +390,7 @@ async function runUpload() {
                 throw new Error(gettext("Unknown upload finalization error"));
         }
     }
+    return shareId;
 }
 
 function disableUi(disable) {
@@ -461,9 +463,10 @@ form.addEventListener("submit", async (ev) => {
     progressText.textContent = `0B / ${pretty_space(totalBytes)}`;
 
     try {
-        await runUpload();
-        // TODO: redirect to a success page
+        transfer_id = await runUpload();
         progressText.textContent = gettext("Done!");
+        redirect_url = `${urls.endDest}?success=share_cre&transfer_id=${transfer_id}`;
+        window.location.href = redirect_url;
     } catch (err) {
         showError(gettext("Upload failed: ") + String(err.message || err));
         disableUi(false);

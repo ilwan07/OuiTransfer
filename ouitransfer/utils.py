@@ -139,6 +139,22 @@ def get_email_subject(template, lang):
         }
         return associations.get(template)
 
+def transfer_id_to_url(id):
+    """Takes a transfer id and return the url to access it if it exists"""
+    if not id:
+        return None
+    from .models import ShareModel, RequestModel  # avoid circular import
+    try:
+        ShareObject = ShareModel.objects.get(id=id)
+        return ShareObject.url()
+    except ShareModel.DoesNotExist:
+        pass
+    try:
+        RequestObject = RequestModel.objects.get(id=id)
+        return RequestObject.url()
+    except RequestModel.DoesNotExist:
+        pass
+    return None
 
 def enough_space(dir:Path, file_size:int):
     """Check if there's enough space in the directory to store file, accounting for safe space"""

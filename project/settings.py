@@ -79,7 +79,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django_crontab',
     'ouitransfer.apps.OuitransferConfig',
 ]
 
@@ -181,11 +180,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# Jobs
-
-CRONJOBS = [
-    ('*/5 * * * *', 'ouitransfer.jobs.myjob')  # run job every 5min
-]
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
