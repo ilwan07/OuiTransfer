@@ -20,6 +20,7 @@ def start_background_jobs():
     if settings.USE_ANTIVIRUS:
         start_job_loop(antivirus_job, 30)
     start_job_loop(clear_unfinished_shares_job, 30)
+    start_job_loop(deactivate_expired_shares_job, 30)
 
 
 def start_job_loop(fn:function, delay:int):
@@ -54,3 +55,12 @@ def clear_unfinished_shares_job():
         if share.last_chunk_date + timezone.timedelta(seconds=settings.UPLOAD_TIMEOUT) < timezone.now():
             # the share got past the timeout
             share.delete()
+
+def deactivate_expired_shares_job():
+    """Deactivate shares after they expired"""
+    old_shares = ShareModel.objects.filter(upload_completed=True, active=True).exclude(expire_date__isnull=True)
+    for share in old_shares:
+        if share.expire_date < timezone.now():
+            # the share expired
+            share.deactivate()
+            share.save()

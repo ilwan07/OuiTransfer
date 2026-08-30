@@ -8,7 +8,7 @@ class FileModelInLine(admin.TabularInline):
     model = FileModel
     extra = 0
     show_change_link = True
-    classes = ["collapse"]
+    classes = []
     fields = ["filename", "file_size", "md5", "antivirus_detail", "upload_completed"]
 
 
