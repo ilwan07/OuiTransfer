@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.utils import timezone
 
 import os
 import time
@@ -18,6 +19,7 @@ def start_background_jobs():
 
     if settings.USE_ANTIVIRUS:
         start_job_loop(antivirus_job, 30)
+    start_job_loop(clear_unfinished_shares_job, 30)
 
 
 def start_job_loop(fn:function, delay:int):
@@ -44,3 +46,11 @@ def antivirus_job():
             item.save()
         except Exception as e:
             log.error(f"Failed to perform antivirus job on file {item.id}")
+
+def clear_unfinished_shares_job():
+    """Delete every unfinished share creation past the upload timeout"""
+    unfinished_shares = ShareModel.objects.filter(upload_completed=False)
+    for share in unfinished_shares:
+        if share.last_chunk_date + timezone.timedelta(seconds=settings.UPLOAD_TIMEOUT) < timezone.now():
+            # the share got past the timeout
+            share.delete()

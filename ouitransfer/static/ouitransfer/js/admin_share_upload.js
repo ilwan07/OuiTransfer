@@ -345,7 +345,7 @@ async function runUpload() {
             switch (fileData.error) {
                 case "missing_args":
                     throw new Error(gettext("Missing arguments while initializing file upload"));
-                case "nonexistant_share":
+                case "nonexistent_share":
                     throw new Error(gettext("The share object does not exist"));
                 case "no_space":
                     throw new Error(gettext("Not enough space to upload the file, try refreshing the storage directory to see the available space"));
@@ -384,7 +384,7 @@ async function runUpload() {
     const res = await postForm(urls.finishShare, finishShareFd);
     if (!res.ok) {  // failed file init
         switch (res.error) {
-            case "nonexistant_share":
+            case "nonexistent_share":
                 throw new Error(gettext("The share object does not exist"));
             case "no_files":
                 throw new Error(gettext("No files were uploaded"));

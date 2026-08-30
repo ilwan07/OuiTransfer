@@ -137,7 +137,7 @@ def start_file_share(request:HttpRequest):
     try:
         ShareObject = ShareModel.objects.get(id=share_id)
     except ShareModel.DoesNotExist:
-        return JsonResponse({"ok": False, "error": "nonexistant_share"})
+        return JsonResponse({"ok": False, "error": "nonexistent_share"})
     if len(filename) > 255:
         ShareObject.delete()
         return JsonResponse({"ok": False, "error": "filename_too_long"})
@@ -179,7 +179,7 @@ def upload_chunk_share(request:HttpRequest):
     try:
         FileObject = FileModel.objects.get(id=file_id)
     except FileModel.DoesNotExist:
-        return JsonResponse({"ok": False, "error": "nonexistant_file"})
+        return JsonResponse({"ok": False, "error": "nonexistent_file"})
     ShareObject = FileObject.share
     if ShareObject is None:
         return JsonResponse({"ok": False, "error": "not_share_file"})
@@ -226,7 +226,7 @@ def finish_file_share(request:HttpRequest):
     try:
         FileObject = FileModel.objects.get(id=file_id)
     except FileModel.DoesNotExist:
-        return JsonResponse({"ok": False, "error": "nonexistant_file"})
+        return JsonResponse({"ok": False, "error": "nonexistent_file"})
     FileObject.upload_completed = True
     FileObject.save()
     
@@ -251,7 +251,7 @@ def finish_share(request:HttpRequest):
     try:
         ShareObject = ShareModel.objects.get(id=share_id)
     except ShareModel.DoesNotExist:
-        return JsonResponse({"ok": False, "error": "nonexistant_share"})
+        return JsonResponse({"ok": False, "error": "nonexistent_share"})
     files:list[FileModel] = ShareObject.filemodel_set.all()
     if len(files) == 0:
         ShareObject.delete()
