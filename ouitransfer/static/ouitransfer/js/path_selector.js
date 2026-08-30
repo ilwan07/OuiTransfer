@@ -2,9 +2,10 @@ const path_selector = document.getElementById("path-selector");  // div containi
 const info_tag = document.getElementById("path-info");  // tag to display info about path actions
 const next_dirs_url = path_selector.getAttribute("data-next-dirs-url");
 const reset_path_button = document.getElementById("reset-path");
-const default_dir_breakdown_url = path_selector.getAttribute("data-default-dir-breakdown-url");
 const maxBytesSpan = document.getElementById("max-bytes");
 const availableSpaceSpan = document.getElementById("available-space");
+
+const default_dir_breakdown_span_base = "breakdown-elem-";
 
 var path_selects = [document.getElementById("root-path")];  // array of the selects in the path selector
 
@@ -108,41 +109,34 @@ async function update_dirs() {
 path_selects[0].addEventListener("change", update_dirs);  // update from selected input
 
 // set the default directory in the path selector
-//TODO: get breakdown from template
 async function set_default_dir() {
     set_enabled(path_selects, false);  // disable selects while processing
     reset_path_button.disabled = true;
     info_tag.textContent = gettext("Loading...");
-    const breakdown_url = new URL(default_dir_breakdown_url, window.location.origin);
-    try {
-        const breakdown_response = await fetch(breakdown_url);
-        if (!breakdown_response.ok) {
-            info_tag.textContent = gettext("Request error: HTTP") + breakdown_response.status;
+    // create breakdown array
+    var breakdown = [];
+    var nextspan;
+    for (var i=0;; i++) {
+        nextspan = document.getElementById(`${default_dir_breakdown_span_base}${i}`);
+        if (nextspan == null) {
+            break;
         }
-        else {
-            const breakdown_json = await breakdown_response.json();
-            if (breakdown_json.breakdown.length == 0) {
-                info_tag.textContent = gettext("Server error: an empty path was provided");
-            }
-            // update selects one by one
-            const breakdown = breakdown_json.breakdown;
-            var okay = true;
-            for (var i=0; i<breakdown.length; i++) {
-                if (!Array.from(path_selects[i].options).some(option => option.value === breakdown[i])) {
-                    // if the next option is not available, it's an error
-                    info_tag.textContent = gettext("Path error: the default path is not accessible");
-                    okay = false;
-                    break;
-                }
-                path_selects[i].value = breakdown[i];
-                await update_dirs.call(path_selects[i]);
-            }
-            if (okay) {info_tag.textContent = "";}
-        }
-    } catch (error) {
-        info_tag.textContent = gettext("Network error: ") + String(error);
-        return;
+        breakdown.push(nextspan.textContent);
     }
+    // update selects one by one
+    var okay = true;
+    for (var i=0; i<breakdown.length; i++) {
+        if (!Array.from(path_selects[i].options).some(option => option.value === breakdown[i])) {
+            // if the next option is not available, it's an error
+            info_tag.textContent = gettext("Path error: the default path is not accessible");
+            okay = false;
+            set_enabled(path_selects, true)
+            break;
+        }
+        path_selects[i].value = breakdown[i];
+        await update_dirs.call(path_selects[i]);
+    }
+    if (okay) {info_tag.textContent = "";}
     reset_path_button.disabled = false;
 }
 

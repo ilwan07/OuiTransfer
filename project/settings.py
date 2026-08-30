@@ -38,25 +38,23 @@ GITHUB_REPO = 'https://github.com/ilwan07/OuiTransfer/'
 OWNER = 'Ilwân'  # Your name here
 
 BASE_STORAGE_PATH = '/home/ilwan/tests/transfers/'  # Default path to store transfered files (must be allowed, see below)
-ALLOW_DOTFILES = False  # Whether to show and allow dotted directories
+ALLOW_DOTFILES = False  # Whether to show and allow directories starting with a dot (hidden directories)
 
 # Only allow to save files in directories under these paths (include trailing slashes)
-# Each couple is the path and its alias name (CANNOT contain a '/', can be None)
+# Each couple is the path and its alias name (which CANNOT contain a '/', can be None for no alias)
 # SECURITY WARNING: don't include any sensitive path, edit this!
 ALLOWED_STORAGE_ROOTS = [
     ('/home/ilwan/', 'Home'),
     ('/mnt/nas/', 'NAS'),
-    ('/var/tmp/', None),
-    ('/tmp/', 'TMP'),
+    ('/tmp/', None),
 ]
 
 STORAGE_SAFE_SPACE = 2 * 2**30  # Consider storage full if less than this space is free (in bytes)
 UPLOAD_CHUNK_SIZE = 5 * 2**20  # Size of each chunk to upload
-UPLOAD_TIMEOUT = 10 * 60  # How many seconds after last chunk received to consider an upload/share to be cancelled
+UPLOAD_TIMEOUT = 60  # How many seconds after last chunk received to consider an upload/share to be cancelled
 
 USE_ANTIVIRUS = True  # Scan uploaded files witch clamav
-ANTIVIRUS_MAX_SIZE = 1 * 2**30  # Size limit to perform antivirus scan
-# antivirus notes: use --fdpass for read access, enable AlertExceedsMax in config, change MaxFileSize and MaxScanSize in config
+ANTIVIRUS_MAX_SIZE = 2**30  # Size limit to perform antivirus scan
 
 # Email configuration
 

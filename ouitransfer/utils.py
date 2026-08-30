@@ -83,14 +83,15 @@ def antivirus_scan(file_path:Path) -> tuple[int, str]:
     status, detail = clam.fdscan(file_path)
     if status == "ERROR":
         log.error(f"Error when scanning file {file_path}: {detail}")
-        return (2, "Error during scan.")
+        return (2, "Error during scan")
     elif status == "FOUND":
         if detail == "Heuristics.Limits.Exceeded.MaxFileSize":
-            return (2, "Too large to scan.")
+            return (2, "Too large to scan")
         else:
+            log.warning(f"An infected file was uploaded: {file_path}")
             return (3, detail)
     elif status == "OK":
-        return (1, "File safe.")
+        return (1, "File safe")
     else:
         log.error(f"Unknown antivirus status for {file_path}: ({status}, {detail})")
         return (2, "Unknown scan result")

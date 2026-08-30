@@ -24,11 +24,11 @@ class ShareModel(models.Model):
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     public = models.BooleanField(_("public"), default=False)
-    email = models.EmailField(_("receiver email"), default=None, null=True)
-    email_lang = models.CharField(_("email language"), default=None, null=True)
-    message = models.TextField(_("message"), default=None, null=True)
+    email = models.EmailField(_("receiver email"), default=None, null=True, blank=True)
+    email_lang = models.CharField(_("email language"), default=None, null=True, blank=True)
+    message = models.TextField(_("message"), default=None, null=True, blank=True)
     creation_date = models.DateTimeField(_("creation date"), default=timezone.now)
-    expire_date = models.DateTimeField(_("expiration date"), default=None, null=True)
+    expire_date = models.DateTimeField(_("expiration date"), default=None, null=True, blank=True)
     store_path = models.CharField(_("storage directory"), max_length=4096, default=None, null=True)
     upload_completed = models.BooleanField(_("upload completed"), default=False)
     last_chunk_date = models.DateTimeField(_("date of last received chunk"), default=timezone.now)
@@ -70,11 +70,11 @@ class RequestModel(models.Model):
         verbose_name_plural = _("request models")
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    email = models.EmailField(_("sender email"), default=None, null=True)
-    email_lang = models.CharField(_("email language"), default=None, null=True)
-    message = models.TextField(_("message"), default=None, null=True)
+    email = models.EmailField(_("sender email"), default=None, null=True, blank=True)
+    email_lang = models.CharField(_("email language"), default=None, null=True, blank=True)
+    message = models.TextField(_("message"), default=None, null=True, blank=True)
     creation_date = models.DateTimeField(_("creation date"), default=timezone.now)
-    expire_date = models.DateTimeField(_("expiration date"), default=None, null=True)
+    expire_date = models.DateTimeField(_("expiration date"), default=None, null=True, blank=True)
     size_limit = models.PositiveIntegerField(_("upload size limit"), default=None, null=True)
     store_path = models.CharField(_("storage directory"), max_length=4096, default=settings.BASE_STORAGE_PATH)
     upload_completed = models.BooleanField(_("upload completed"), default=False)
@@ -118,14 +118,14 @@ class FileModel(models.Model):
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)  # use as filename for storage
     # either comes from a share or a request: only one with a value, the other should be None
-    share = models.ForeignKey(ShareModel, on_delete=models.CASCADE, verbose_name=_("share containing file"), default=None, null=True)
-    request = models.ForeignKey(RequestModel, on_delete=models.CASCADE, verbose_name=_("request containing file"), default=None, null=True)
+    share = models.ForeignKey(ShareModel, on_delete=models.CASCADE, verbose_name=_("share containing file"), default=None, null=True, blank=True)
+    request = models.ForeignKey(RequestModel, on_delete=models.CASCADE, verbose_name=_("request containing file"), default=None, null=True, blank=True)
     filename = models.CharField(_("original filename"), max_length=255)  # original filename, not for storage to avoid issues
-    file_size = models.PositiveIntegerField(_("file size"), default=None, null=True)
+    file_size = models.PositiveIntegerField(_("file size"))
     upload_completed = models.BooleanField(_("upload completed"), default=False)
-    md5 = models.CharField(_("md5 hex hash"), max_length=32, default=None, null=True)
+    md5 = models.CharField(_("md5 hex hash"), max_length=32, default=None, null=True, blank=True)
     antivirus_status = models.IntegerField(_("antivirus status"), default=0)  # 0 = not scanned, 1 = safe, 2 = attention required, 3 = infected
-    antivirus_detail = models.TextField(_("antivirus detail"), default=None, null=True)
+    antivirus_detail = models.CharField(_("antivirus detail"), max_length=8192, default=None, null=True, blank=True)
     
     def filepath(self):
         """Returns the file path on disk"""

@@ -56,7 +56,12 @@
                 <img class="inv" src="{%static 'ouitransfer/assets/reset.svg' %}" alt="{%trans 'reset path'%}">
             </button>
             <label>{%trans "Store in:"%}</label>
-            <div id="path-selector" data-next-dirs-url="{%url '_next_dirs'%}" data-default-dir-breakdown-url="{%url '_default_dir_breakdown'%}">
+            <div id="path-selector" data-next-dirs-url="{%url '_next_dirs'%}">
+                <div id="default-breakdown" style="display:none">
+                    {% for elem in default_path_breakdown %}
+                        <span id="breakdown-elem-{{forloop.counter0}}">{{elem}}</span>
+                    {% endfor %}
+                </div>
                 <select id="root-path" class="path-elem" name="path-0" index="0">
                     {%for path in ALLOWED_ROOTS%}
                         <option value="{{path}}">{{path}}</option>

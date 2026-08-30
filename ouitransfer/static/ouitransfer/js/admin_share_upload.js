@@ -386,6 +386,10 @@ async function runUpload() {
         switch (res.error) {
             case "nonexistant_share":
                 throw new Error(gettext("The share object does not exist"));
+            case "no_files":
+                throw new Error(gettext("No files were uploaded"));
+            case "unfinished_files":
+                throw new Error(gettext("Some files weren't done uploading"));
             default:
                 throw new Error(gettext("Unknown upload finalization error"));
         }

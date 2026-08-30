@@ -74,8 +74,19 @@ def share(request:HttpRequest):
     if request.method == "GET":
         bytes_upload_space = space_left(settings.BASE_STORAGE_PATH)
         pretty_upload_space = pretty_space(bytes_upload_space)
+        default_path = Path(settings.BASE_STORAGE_PATH)
+        if not default_path.exists() or not is_path_legal(default_path):
+            log.error("Default directory inaccessible")
+            breakdown = []
+        else:
+            breakdown = path_breakdown(default_path)
+        if breakdown is None:
+            log.error("Can't break down default directory")
+            breakdown = []
+
         return render(request, "ouitransfer/admin_share.html",
                       {"ALLOWED_ROOTS": [f"{cpl[1]}/" if cpl[1] is not None else cpl[0] for cpl in settings.ALLOWED_STORAGE_ROOTS],
+                       "default_path_breakdown": breakdown,
                        "bytes_upload_space": bytes_upload_space, "pretty_upload_space": pretty_upload_space,
                        "upload_chunk_size": settings.UPLOAD_CHUNK_SIZE})
     
@@ -109,7 +120,6 @@ def start_share(request:HttpRequest):
 
 def start_file_share(request:HttpRequest):
     """Registers a new file under a share and returns its id for chunk uploads"""
-    #FIXME: clean delete share on error
     if not request.user.is_staff:
         log.warning(f"Tried illegal share file start. Headers: {request.headers}")
         raise PermissionDenied()
@@ -124,16 +134,19 @@ def start_file_share(request:HttpRequest):
     
     if None in (share_id, filename, file_size) or filename == "":
         return JsonResponse({"ok": False, "error": "missing_args"})
-    if len(filename) > 255:
-        return JsonResponse({"ok": False, "error": "filename_too_long"})
-    file_size = get_posint(file_size)
-    if file_size is None:
-        return JsonResponse({"ok": False, "error": "invalid_size"})
     try:
         ShareObject = ShareModel.objects.get(id=share_id)
     except ShareModel.DoesNotExist:
         return JsonResponse({"ok": False, "error": "nonexistant_share"})
+    if len(filename) > 255:
+        ShareObject.delete()
+        return JsonResponse({"ok": False, "error": "filename_too_long"})
+    file_size = get_posint(file_size)
+    if file_size is None:
+        ShareObject.delete()
+        return JsonResponse({"ok": False, "error": "invalid_size"})
     if file_size > space_left(ShareObject.store_path):
+        ShareObject.delete()
         return JsonResponse({"ok": False, "error": "no_space"})
     
     FileObject = FileModel(share=ShareObject, filename=filename, file_size=file_size)
@@ -145,6 +158,7 @@ def start_file_share(request:HttpRequest):
         os.truncate(path, FileObject.file_size)
     except Exception as e:
         log.error(f"Error allocating file {FileObject.id}: {e}")
+        ShareObject.delete()
         return JsonResponse({"ok": False, "error": "allocation_error"})
     return JsonResponse({"ok": True, "file_id": str(FileObject.id)})
 
@@ -162,9 +176,6 @@ def upload_chunk_share(request:HttpRequest):
     chunk = request.FILES.get("chunk")
     if None in (file_id, chunk_index, chunk):
         return JsonResponse({"ok": False, "error": "missing_args"})
-    chunk_index = get_posint(chunk_index)
-    if chunk_index is None:
-        return JsonResponse({"ok": False, "error": "invalid_index"})
     try:
         FileObject = FileModel.objects.get(id=file_id)
     except FileModel.DoesNotExist:
@@ -172,11 +183,17 @@ def upload_chunk_share(request:HttpRequest):
     ShareObject = FileObject.share
     if ShareObject is None:
         return JsonResponse({"ok": False, "error": "not_share_file"})
+    chunk_index = get_posint(chunk_index)
+    if chunk_index is None:
+        ShareObject.delete()
+        return JsonResponse({"ok": False, "error": "invalid_index"})
     if chunk.size > settings.UPLOAD_CHUNK_SIZE:
+        ShareObject.delete()
         return JsonResponse({"ok": False, "error": "chunk_too_large"})
     offset = chunk_index * settings.UPLOAD_CHUNK_SIZE
     if offset + chunk.size > FileObject.file_size:
         log.warning(f"Tried to upload overflow chunk. Headers: {request.headers}")
+        ShareObject.delete()
         return JsonResponse({"ok": False, "error": "write_overflow"})
     chunk_bytes = chunk.read()
     file = os.open(FileObject.filepath().as_posix(), os.O_WRONLY)
@@ -184,11 +201,13 @@ def upload_chunk_share(request:HttpRequest):
         written = os.pwrite(file, chunk_bytes, offset)
     except Exception as e:
         log.error(f"Error writing chunk to file {FileObject.id}: {e}")
+        ShareObject.delete()
         return JsonResponse({"ok": False, "error": "write_error"})
     finally:
         os.close(file)
     if written < chunk.size:
         log.error(f"Error writing chunk to file {FileObject.id}: did not write every byte")
+        ShareObject.delete()
         return JsonResponse({"ok": False, "error": "write_error"})
     ShareObject.last_chunk_date = timezone.now()
     ShareObject.save()
@@ -233,6 +252,13 @@ def finish_share(request:HttpRequest):
         ShareObject = ShareModel.objects.get(id=share_id)
     except ShareModel.DoesNotExist:
         return JsonResponse({"ok": False, "error": "nonexistant_share"})
+    files:list[FileModel] = ShareObject.filemodel_set.all()
+    if len(files) == 0:
+        ShareObject.delete()
+        return JsonResponse({"ok": False, "error": "no_files"})
+    if not all([file.upload_completed for file in files]):
+        ShareObject.delete()
+        return JsonResponse({"ok": False, "error": "unfinished_files"})
     ShareObject.creation_date = timezone.now()
     ShareObject.upload_completed = True
     ShareObject.save()
@@ -243,7 +269,7 @@ def finish_share(request:HttpRequest):
 
 def transfer(request:HttpRequest, transfer_id:str):
     """Shows the page associated with a transfer (share or request)"""
-    #TODO
+    #TODO transfer view
     return HttpResponse(f"TODO: transfer {transfer_id}")
 
 
@@ -268,21 +294,3 @@ def next_dirs(request:HttpRequest):
     response = {"dirs": list_subdirs(realpath), "free_space": space_left(realpath)}
     log.debug(f"Served next directories after {realpath}")
     return JsonResponse(response)
-
-
-def default_dir_breakdown(request:HttpRequest):
-    #TODO: remove for better handling
-    if not request.user.is_staff:
-        log.warning(f"Tried getting default directory breakdown illegally. Headers: {request.headers}")
-        raise Http404()
-    path = Path(settings.BASE_STORAGE_PATH)
-    if not path.exists() or not is_path_legal(path):
-        log.warning("Default directory inaccessible")
-        raise Http404()
-    breakdown = path_breakdown(path)
-    if breakdown is None:
-        log.warning("Can't break down default directory")
-        raise Http404()
-
-    # return the path elements as json
-    return JsonResponse({"breakdown": breakdown})
