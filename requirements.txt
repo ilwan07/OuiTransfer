@@ -10,4 +10,4 @@ packaging==25.0
 pycparser==2.23
 python-dotenv==1.2.2
 sqlparse==0.5.5
-tzdata==2025.3
+tzdata==2026.4
